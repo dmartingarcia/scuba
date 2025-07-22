@@ -21,7 +21,10 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
 
   <h2>Cleaning Progress</h2>
   <canvas id="cleaningMap" width="300" height="300"></canvas>
-
+  <div>
+    <h3>Logs</h3>
+    <pre id="logArea" style="background:#222;color:#0f0;height:200px;overflow:auto"></pre>
+  </div>
   <script>
     function controlRobot(action) {
       var xhr = new XMLHttpRequest();
@@ -63,6 +66,16 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
       ctx.fillStyle = "red";
       ctx.fillRect(mapData.x * cellSize, mapData.y * cellSize, cellSize, cellSize);
     }
+
+    function updateLogs() {
+      fetch('/logs')
+        .then(r => r.text())
+        .then(txt => {
+          document.getElementById('logArea').textContent = txt;
+        });
+    }
+    setInterval(updateLogs, 2000); // Actualiza cada 2 segundos
+    updateLogs();
   </script>
 </body>
 </html>
