@@ -51,7 +51,7 @@ bool cleanedArea[GRID_SIZE][GRID_SIZE] = {false};
 int currentX = GRID_SIZE / 2;
 int currentY = GRID_SIZE / 2;
 int targetDirection = 0; // 0 = North, 90 = East, 180 = South, 270 = West
-long startup_delay = 10000; // 10 seconds delay for startup
+long nextTimeLogic = 1000; // For controlling logic execution frequency, startup delay of 1 second
 
 // Movement parameters
 const float WALL_ANGLE_THRESHOLD = 30.0; // Degrees for wall detection
@@ -247,33 +247,36 @@ void handleWallDetection() {
 }
 
 void robotLogic() {
+  if (nextTimeLogic > millis()) return; // Prevent logic from running too frequently
+  nextTimeLogic += 500; // Run logic every 500ms
+
   mpu.update();
   bmp.readSensor();
-  float inclination = mpu.getInclination();
-  float magneticDirection = mpu.getMagDirection();
-
-  logBuffer.println("Inclination: " + String(inclination));
-  logBuffer.println("Magnetic Direction: " + String(magneticDirection));
+  logBuffer.println("------ Millis: " + String(millis()));
+  logBuffer.println("Inclination: " + String(mpu.getInclination()));
+  logBuffer.println("Magnetic Direction: " + String(mpu.getMagDirection()));
   logBuffer.println("accelX: " + String(mpu.getAccelX()));
   logBuffer.println("accelY: " + String(mpu.getAccelY()));
   logBuffer.println("accelZ: " + String(mpu.getAccelZ()));
   logBuffer.println("Temperature: " + String(bmp.temperature));
   logBuffer.println("Pressure: " + String(bmp.pressure));
+  logBuffer.println("IP address: " + WiFi.localIP().toString());
 
   switch (currentState) {
     case STARTING:
       logBuffer.println("Starting robot...");
+      // read mpu and check if robot is moving, and wait until it is upright
+      while (mpu.getInclination() < FLOOR_INCLINATION_PRECISION) {
+        mpu.update();
+        logBuffer.println("Waiting for robot to be upright...");
+        delay(50); // Wait until the robot is upright
+      }
+
       motorAgua.setSpeed(AGUA_IDLE_SPEED);
+      motorMovimiento.setSpeed(10); // Start moving forward slowly
 
-      while (inclination != mpu.getInclination() || magneticDirection != mpu.getMagDirection()) {
-        inclination = mpu.getInclination();
-        magneticDirection = mpu.getMagDirection();
-        delay(1000); // Wait for sensor to stabilize
-      }
-
-      if (startup_delay + 1000 < millis()) {
-        currentState = MOVING_FORWARD;
-      }
+      currentState = MOVING_FORWARD;
+      logBuffer.println("Robot started and ready to move.");
 
       break;
     case MOVING_FORWARD:
@@ -334,7 +337,5 @@ void loop() {
 
   led.handleBlink();
 
-  logBuffer.println("IP address: ");
-  logBuffer.println(WiFi.localIP().toString());
-  delay(50); // Small delay for stability
+  delay(500); // Small delay for stability
 }
