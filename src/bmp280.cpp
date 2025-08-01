@@ -11,12 +11,12 @@ bool BMP280::init() {
         return false;
     }
 
-    // Configuração do sensor BMP280
-    bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,     // Modo de operação
-                    Adafruit_BMP280::SAMPLING_X2,     // Sobreamostragem de temperatura
-                    Adafruit_BMP280::SAMPLING_X16,    // Sobreamostragem de pressão
-                    Adafruit_BMP280::FILTER_X16,      // Filtragem
-                    Adafruit_BMP280::STANDBY_MS_500); // Tempo de espera
+    // sensor BMP280
+    bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,
+                    Adafruit_BMP280::SAMPLING_X2,
+                    Adafruit_BMP280::SAMPLING_X16,
+                    Adafruit_BMP280::FILTER_X16,
+                    Adafruit_BMP280::STANDBY_MS_500);
 
     initialized = true;
     return true;
@@ -26,5 +26,5 @@ void BMP280::readSensor() {
     if (!initialized) return;
 
     temperature = bmp.readTemperature();
-    pressure = bmp.readPressure() / 100.0F; // Convertendo Pa para hPa
+    pressure = bmp.readPressure();
 }

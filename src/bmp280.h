@@ -14,7 +14,6 @@ public:
     float temperature;  // Temperatura em °C
     float pressure;     // Pressão em hPa
 
-private:
     Adafruit_BMP280 bmp;
     bool initialized;
 };
