@@ -12,22 +12,21 @@ public:
     void logging_data();
     void update();
 
-    float getAccelX() const;
-    float getAccelY() const;
-    float getAccelZ() const;
-    float getSqrtAccel() const;
-    float getInclination() const;
+    float getAccelX();
+    float getAccelY();
+    float getAccelZ();
+    float getSqrtAccel();
+    float getInclination();
 
-    float getGyroX() const;
-    float getGyroY() const;
-    float getGyroZ() const;
+    float getGyroX();
+    float getGyroY();
+    float getGyroZ();
 
-    float getMagX() const;
-    float getMagY() const;
-    float getMagZ() const;
-    float getMagDirection() const;
+    float getMagX();
+    float getMagY();
+    float getMagZ();
+    float getMagDirection();
 
-private:
     MPU9250_asukiaaa mpu;
     uint8_t sda, scl;
     float ax, ay, az, aSqrt;
