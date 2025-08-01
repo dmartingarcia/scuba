@@ -8,6 +8,7 @@
 #include "motor.h"
 #include "led.h"
 #include "mpu9250.h"
+#include "bmp280.h"
 #include "secrets.h"
 #include "index.h" // HTML content for the web interface
 #include "log_buffer.h" // Custom log buffer class for managing logs
@@ -31,6 +32,7 @@ Motor motorMovimiento(MOVIMIENTO_RPWM_Output, MOVIMIENTO_LPWM_Output, MOVIMIENTO
 Motor motorAgua(AGUA_RPWM_Output, AGUA_LPWM_Output, AGUA_R_ENABLE, AGUA_L_ENABLE);
 Led led(LED_BUILTIN);
 MPU9250 mpu(I2C_SDA, I2C_SCL);
+BMP280 bmp;
 LogBuffer logBuffer;
 
 // Robot state
@@ -41,7 +43,7 @@ enum RobotState {
   STOPPED,
   STARTING
 };
-RobotState currentState = STARTING;
+RobotState currentState = STOPPED;
 
 // Cleaning area tracking
 const int GRID_SIZE = 20; // 20x20 grid
@@ -246,8 +248,17 @@ void handleWallDetection() {
 
 void robotLogic() {
   mpu.update();
+  bmp.readSensor();
   float inclination = mpu.getInclination();
   float magneticDirection = mpu.getMagDirection();
+
+  logBuffer.println("Inclination: " + String(inclination));
+  logBuffer.println("Magnetic Direction: " + String(magneticDirection));
+  logBuffer.println("accelX: " + String(mpu.getAccelX()));
+  logBuffer.println("accelY: " + String(mpu.getAccelY()));
+  logBuffer.println("accelZ: " + String(mpu.getAccelZ()));
+  logBuffer.println("Temperature: " + String(bmp.temperature));
+  logBuffer.println("Pressure: " + String(bmp.pressure));
 
   switch (currentState) {
     case STARTING:
