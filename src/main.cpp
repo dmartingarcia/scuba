@@ -7,11 +7,11 @@
 #include <ArduinoOTA.h>
 #include "motor.h"
 #include "led.h"
-#include "mpu9250.h"
-#include "bmp280.h"
 #include "secrets.h"
 #include "index.h" // HTML content for the web interface
 #include "log_buffer.h" // Custom log buffer class for managing logs
+#include "Adafruit_BMP280.h" // BMP280 sensor library
+#include "MPU9250_asukiaaa.h" // MPU9250 sensor library
 
 // Pin definitions for the motors and sensors
 #define AGUA_RPWM_Output 13 // Arduino PWM output pin 5; connect to IBT-2 pin 1 (RPWM)
@@ -22,8 +22,14 @@
 #define MOVIMIENTO_LPWM_Output 2 // Arduino PWM output pin 6; connect to IBT-2 pin 2 (LPWM)
 #define MOVIMIENTO_R_ENABLE 5 // Not used in this example, but can be connected to Arduino pin 8 if needed
 #define MOVIMIENTO_L_ENABLE 4 // Not used in this example, but can be connected to Arduino pin 7 if needed
-#define I2C_SDA 7
-#define I2C_SCL 4
+#define SDA_PIN 7
+#define SCL_PIN 6
+#define MAX_TIME_TURNING 5000
+#define DELAY_UPDATING_SENSORS 100
+#define DELAY_AUTOSTART 30000
+#define DELAY_UPDATING_POSITION 2000 // Delay for updating position in milliseconds
+#define TURN_ANGLE 15 // Degrees to turn when changing direction
+float aX, aY, aZ, aSqrt, gX, gY, gZ, mDirection, mX, mY, mZ, temp, pressure;
 
 // Web server
 AsyncWebServer server(80);
@@ -31,8 +37,8 @@ AsyncWebServer server(80);
 Motor motorMovimiento(MOVIMIENTO_RPWM_Output, MOVIMIENTO_LPWM_Output, MOVIMIENTO_R_ENABLE, MOVIMIENTO_L_ENABLE);
 Motor motorAgua(AGUA_RPWM_Output, AGUA_LPWM_Output, AGUA_R_ENABLE, AGUA_L_ENABLE);
 Led led(LED_BUILTIN);
-MPU9250 mpu(I2C_SDA, I2C_SCL);
-BMP280 bmp;
+Adafruit_BMP280 bmp; // BMP280 sensor object
+MPU9250_asukiaaa mpu; // MPU9250 sensor object
 LogBuffer logBuffer;
 
 // Robot state
@@ -43,26 +49,125 @@ enum RobotState {
   STOPPED,
   STARTING
 };
-RobotState currentState = STOPPED;
+RobotState currentState = STARTING; // TODO: Initial state while debugging, should be STARTING
+RobotState movement = MOVING_FORWARD; // Default movement state
 
 // Cleaning area tracking
-const int GRID_SIZE = 20; // 20x20 grid
+const int GRID_SIZE = 30; // 200x200 grid
 bool cleanedArea[GRID_SIZE][GRID_SIZE] = {false};
 int currentX = GRID_SIZE / 2;
 int currentY = GRID_SIZE / 2;
-int targetDirection = 0; // 0 = North, 90 = East, 180 = South, 270 = West
 long nextTimeLogic = 1000; // For controlling logic execution frequency, startup delay of 1 second
+long nextUpdate = 0; // for preventing updating sensor al the times
+long timeToAutostart = DELAY_AUTOSTART; // Time to wait before starting the robot after setup
+long nextPositionUpdate = 0; // For updating position every 2 seconds
 
 // Movement parameters
-const float WALL_ANGLE_THRESHOLD = 30.0; // Degrees for wall detection
+const float WALL_ANGLE_THRESHOLD = 75.0; // Degrees for wall detection
 const float FLOOR_INCLINATION_PRECISION = 10; // Minimum inclination to consider the robot upright
 
 const float MOVIMIENTO_MOVE_SPEED = 200; // Speed for movement
-const float MOVIMIENTO_TURN_SPEED = 150; // Speed for turning
-const float AGUA_TURN_SPEED = 250;
-const float AGUA_MOVE_SPEED = 150;
+const float MOVIMIENTO_IDLE_SPEED = 50; // Speed for turning
+const float AGUA_TURN_SPEED = 255;
+const float AGUA_MOVE_SPEED = 230;
 const float AGUA_IDLE_SPEED = 50; // Speed when not moving
-const float TURN_PRECISION = 5.0; // Degrees
+
+float yaw = 0;
+unsigned long lastYawUpdate = 0;
+
+String resolveState(RobotState state) {
+  switch (state) {
+    case MOVING_FORWARD: return "MOVING_FORWARD";
+    case MOVING_BACKWARD: return "MOVING_BACKWARD";
+    case TURNING: return "TURNING";
+    case STOPPED: return "STOPPED";
+    case STARTING: return "STARTING";
+    default: return "UNKNOWN";
+  }
+}
+
+void update(){
+  if(nextUpdate > millis()){
+    return;
+  }
+  nextUpdate += DELAY_UPDATING_SENSORS;
+
+  uint8_t sensorId;
+  int result;
+
+  bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,
+                  Adafruit_BMP280::SAMPLING_X16,
+                  Adafruit_BMP280::SAMPLING_X16,
+                  Adafruit_BMP280::FILTER_OFF,
+                  Adafruit_BMP280::STANDBY_MS_1);
+  temp = bmp.readTemperature();
+  pressure = bmp.readPressure();
+  //logBuffer.println("Temperature: " + String(temp) + " C - Pressure: " + String(pressure) + " Pa");
+
+  result = mpu.readId(&sensorId);
+  if (result == 0) {
+    //logBuffer.println("sensorId: " + String(sensorId));
+  } else {
+    logBuffer.println("Cannot read sensorId " + String(result));
+  }
+
+  result = mpu.accelUpdate();
+  if (result == 0) {
+    aX = mpu.accelX();
+    aY = mpu.accelY();
+    aZ = mpu.accelZ();
+    aSqrt = mpu.accelSqrt();
+    //logBuffer.println("accel - X:" + String(aX) + " Y:" + String(aY) +" Z:" + String(aZ) + " Sqrt:" + String(aSqrt));
+  } else {
+    logBuffer.println("Cannot read accel values " + String(result));
+  }
+}
+
+void updateYaw() {
+  unsigned long now = millis();
+  float dt = (now - lastYawUpdate) / 1000.0; // en segundos
+  lastYawUpdate = now;
+  int result;
+
+  result = mpu.gyroUpdate();
+  if (result == 0) {
+    gX = mpu.gyroX();
+    gY = mpu.gyroY();
+    gZ = mpu.gyroZ();
+    //logBuffer.println("gyroX: " + String(gX) + " gyroY: " + String(gY) + " gyroZ: " + String(gZ));
+  } else {
+    logBuffer.println("Cannot read gyro values " + String(result));
+    return; // No gyro data, cannot update yaw
+  }
+
+  if (abs(gX) > 2.0) {
+    yaw += gX * dt; // Integración simple
+  }
+
+  // Normaliza el ángulo entre 0 y 360
+  while (yaw < 0) yaw += 360;
+  while (yaw >= 360) yaw -= 360;
+}
+
+float angle(){
+  update();
+  //if (result != 0) {
+  //  mpu.beginAccel();
+  //  result = mpu.accelUpdate();
+  //}
+  // accel - X:-1.01 Y: 0.07 Z:-0.01 Sqrt:1.02 reposo
+  // accel - X:-0.05 Y:-0.04 Z:-1.04 Sqrt:1.04 subiendo de un lado
+  // accel - X: 0.02 Y: 0.06 Z: 0.97 Sqrt:0.97 subiendo del otro lado
+  // accel - X: 0.98 Y:-0.11 Z:-0.09 Sqrt:0.99  boca arriba
+  // accel - X: 0.04 Y: 1.01 Z:-0.09 Sqrt:1.01 de canto 1
+  // accel - X:-0.08 Y:-1.00 Z:-0.00 Sqrt:1.00 de canto 2
+
+  return 90.0f * aZ ;
+}
+
+float direction(){
+  return 0; // Fake MPU9250 , it doesnt have magnetometer
+}
 
 void setup_wifi() {
   logBuffer.println("Connecting to WiFi...");
@@ -70,7 +175,7 @@ void setup_wifi() {
   int retries = 40;
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
-    Serial.print(".");
+    logBuffer.println(".");
 
     retries--;
     if (retries <= 0) {
@@ -89,6 +194,7 @@ void setup_ota() {
   ArduinoOTA.onStart([]() {
     motorMovimiento.setSpeed(0);
     motorAgua.setSpeed(0);
+    currentState = STOPPED; // Stop motors during OTA
   });
 
   ArduinoOTA.onError([](ota_error_t error) {
@@ -112,7 +218,7 @@ void setup_ota() {
 void setup_web_server() {
   // Serve main page
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send_P(200, "text/html", INDEX_HTML);
+    request->send(200, "text/html", INDEX_HTML);
   });
 
   // Serve logs
@@ -130,6 +236,8 @@ void setup_web_server() {
         currentState = MOVING_FORWARD;
       } else if (action == "stop") {
         currentState = STOPPED;
+      } else if (action == "turn") {
+        currentState = TURNING;
       }
     }
     request->send(200, "text/plain", "OK");
@@ -138,25 +246,10 @@ void setup_web_server() {
   // Status endpoint
   server.on("/status", HTTP_GET, [](AsyncWebServerRequest *request){
     String response = "{";
-    response += "\"state\":\"";
-
-    switch (currentState) {
-      case MOVING_FORWARD:
-        response += "Moving Forward";
-        break;
-      case MOVING_BACKWARD:
-        response += "Moving Backward";
-        break;
-      case TURNING:
-        response += "Turning";
-        break;
-      case STOPPED:
-        response += "Stopped";
-        break;
-    }
-
-    response += "\",\"yaw\":" + String(mpu.getInclination()) + ",";
-    response += "\"map\":[";
+    response += "\"state\":\"" + resolveState(currentState) + "\"";
+    response += ",\"angle\":" + String(angle());
+    response += ",\"yaw\": " + String(yaw);
+    response += ",\"map\":[";
 
     for (int y = 0; y < GRID_SIZE; y++) {
       response += "[";
@@ -178,98 +271,113 @@ void setup_web_server() {
 }
 
 void updatePosition() {
+  if(nextPositionUpdate < millis()) return;
+
+  nextPositionUpdate += DELAY_UPDATING_POSITION;
+  int direction = 0; // Default direction is 0 (no movement)
+
+  if(currentState == MOVING_FORWARD) {
+    direction = 1;
+  } else if(currentState == MOVING_BACKWARD) {
+    direction = -1; // Moving backward
+  }
+
   // Mark current position as cleaned
   cleanedArea[currentY][currentX] = true;
 
   // Update position based on orientation
-  float direction = mpu.getMagDirection();
-
-  if (direction >= 315 || direction < 45) { // North
-    currentY = max(0, currentY - 1);
-  } else if (direction >= 45 && direction < 135) { // East
-    currentX = min(GRID_SIZE - 1, currentX + 1);
-  } else if (direction >= 135 && direction < 225) { // South
-    currentY = min(GRID_SIZE - 1, currentY + 1);
+  if (yaw >= 315 || yaw < 45) { // North
+    currentY = std::max(0, currentY - direction);
+  } else if (yaw >= 45 && yaw < 135) { // East
+    currentX = std::min(GRID_SIZE - direction, currentX + direction);
+  } else if (yaw >= 135 && yaw < 225) { // South
+    currentY = std::min(GRID_SIZE - direction, currentY + direction);
   } else { // West
-    currentX = max(0, currentX - 1);
+    currentX = std::max(0, currentX - direction);
   }
 }
 
 void turnToDirection(int targetDegrees) {
-  currentState = TURNING;
+    float currentYaw = yaw;
+    long maxTurningMillis = 0;
 
-  // Normalize target to 0-360
-  while (targetDegrees < 0) targetDegrees += 360;
-  while (targetDegrees >= 360) targetDegrees -= 360;
+    motorAgua.setSpeed(AGUA_IDLE_SPEED); // Start turning
+    maxTurningMillis = millis() + MAX_TIME_TURNING;
 
-  // Calculate shortest turn direction
-  float diff = targetDegrees - mpu.getMagDirection();
-  if (diff > 180) diff -= 360;
-  if (diff < -180) diff += 360;
+    logBuffer.println("Turning to target yaw: " + String(currentYaw - targetDegrees) + "- " + String(currentYaw + targetDegrees) + " from current yaw: " + String(yaw));
 
-  if (abs(diff) <= TURN_PRECISION) {
-    // Already at target
-    motorAgua.setSpeed(0);
-    return;
-  }
+    while(abs(angle()) > FLOOR_INCLINATION_PRECISION) {
+      if (currentState == MOVING_FORWARD) {
+        motorMovimiento.setSpeed(-MOVIMIENTO_IDLE_SPEED);
+      } else if (currentState == MOVING_BACKWARD) {
+        motorMovimiento.setSpeed(MOVIMIENTO_IDLE_SPEED);
+      }
+    }
 
-  if (diff > 0) {
-    // Turn clockwise
-    motorAgua.setSpeed(AGUA_TURN_SPEED);
-  } else {
-    // Turn counter-clockwise
-    motorAgua.setSpeed(-AGUA_TURN_SPEED);
-  }
+    // Stop movement motor while turning
+    motorMovimiento.setSpeed(0);
+    float minTargetYaw = currentYaw - targetDegrees;
+    float maxTargetYaw = currentYaw + targetDegrees;
+
+    while(maxTargetYaw > 360) {
+      maxTargetYaw -= 360; // Normalize range
+    }
+
+    while(minTargetYaw < 0) {
+      minTargetYaw += 360; // Normalize range
+    }
+
+    while(maxTurningMillis > millis() && (std::max(minTargetYaw, maxTargetYaw) < yaw || std::min(minTargetYaw, maxTargetYaw) > yaw)) {
+      updateYaw(); // Update yaw angle based on gyro data
+      motorAgua.setSpeed(AGUA_TURN_SPEED); // Keep turning
+      logBuffer.println("Turning... Yaw: " + String(yaw) + " Target -> min:" + String(minTargetYaw) + " - max:" + String(maxTargetYaw));
+      delay(50); // Small delay to prevent excessive CPU usage
+    }
+
+    motorAgua.setSpeed(AGUA_IDLE_SPEED); // Stop water motor
+
+    if(movement == MOVING_FORWARD) {
+        currentState = MOVING_BACKWARD; // Change state to moving backward after turning
+    } else if(movement == MOVING_BACKWARD) {
+        currentState = MOVING_FORWARD; // Change state to moving forward after turning
+    }
+
+  return ;
 }
 
 void handleWallDetection() {
-  if (mpu.getInclination() > WALL_ANGLE_THRESHOLD) {
+  if (angle() > WALL_ANGLE_THRESHOLD || angle() < -WALL_ANGLE_THRESHOLD) {
     // Wall detected, stop and turn
     motorMovimiento.setSpeed(0);
     delay(500);
-
-    // Choose a random new direction
-    int newDirection = random(0, 4) * 90; // 0, 90, 180, or 270
-
-    // Turn to the new direction
-    while (abs(mpu.getMagZ() - newDirection) > TURN_PRECISION) {
-      mpu.update();
-      turnToDirection(newDirection);
-      delay(50);
-    }
-
-    // Stop turning
-    motorAgua.setSpeed(0);
-
-    // Resume forward movement
-    currentState = MOVING_FORWARD;
+    movement = currentState;
+    currentState = TURNING;
   }
 }
 
 void robotLogic() {
   if (nextTimeLogic > millis()) return; // Prevent logic from running too frequently
   nextTimeLogic += 500; // Run logic every 500ms
-
-  mpu.update();
-  bmp.readSensor();
-  logBuffer.println("------ Millis: " + String(millis()));
-  logBuffer.println("Inclination: " + String(mpu.getInclination()));
-  logBuffer.println("Magnetic Direction: " + String(mpu.getMagDirection()));
-  logBuffer.println("accelX: " + String(mpu.getAccelX()));
-  logBuffer.println("accelY: " + String(mpu.getAccelY()));
-  logBuffer.println("accelZ: " + String(mpu.getAccelZ()));
-  logBuffer.println("Temperature: " + String(bmp.temperature));
-  logBuffer.println("Pressure: " + String(bmp.pressure));
-  logBuffer.println("IP address: " + WiFi.localIP().toString());
+  logBuffer.println("\n\n\n\n\n\n");
+  logBuffer.println("------ Millis: " + String(millis()) + " IP address: " + WiFi.localIP().toString());
+  logBuffer.println("Inclination: " + String(angle()) + " Yaw: " + String(yaw));
+  logBuffer.println("Temperature: " + String(temp) + " C" + " Pressure: " + String(pressure) + " Pa");
+  logBuffer.println("Movement: " + resolveState(movement) + " Current State: " + resolveState(currentState));
 
   switch (currentState) {
     case STARTING:
       logBuffer.println("Starting robot...");
       // read mpu and check if robot is moving, and wait until it is upright
-      while (mpu.getInclination() < FLOOR_INCLINATION_PRECISION) {
-        mpu.update();
-        logBuffer.println("Waiting for robot to be upright...");
-        delay(50); // Wait until the robot is upright
+      if(angle() > FLOOR_INCLINATION_PRECISION) {
+        timeToAutostart = millis() + DELAY_AUTOSTART;
+        logBuffer.println("Robot is not upright, waiting to start...");
+        return;
+      }
+
+      if (millis() < timeToAutostart) {
+        logBuffer.println("Robot is upright, starting in " + String((timeToAutostart - millis()) / 1000) + " seconds");
+        motorAgua.setSpeed(AGUA_IDLE_SPEED/2);
+        return;
       }
 
       motorAgua.setSpeed(AGUA_IDLE_SPEED);
@@ -283,30 +391,16 @@ void robotLogic() {
       motorMovimiento.setSpeed(MOVIMIENTO_MOVE_SPEED);
       motorAgua.setSpeed(AGUA_MOVE_SPEED);
       handleWallDetection();
-      updatePosition();
       break;
 
     case MOVING_BACKWARD:
-      motorAgua.setSpeed(AGUA_IDLE_SPEED);
       motorMovimiento.setSpeed(-MOVIMIENTO_MOVE_SPEED);
-      while(mpu.getInclination() < FLOOR_INCLINATION_PRECISION) {
-        delay(50); // Wait until the robot is upright
-      }
-      motorMovimiento.setSpeed(0);
-
-      // Choose a new direction to turn
-      targetDirection = random(0, 4) * 90;
-      currentState = TURNING;
+      motorAgua.setSpeed(AGUA_MOVE_SPEED);
+      handleWallDetection();
       break;
 
     case TURNING:
-      turnToDirection(targetDirection);
-
-      // Check if we've reached the target direction
-      if (abs(mpu.getMagDirection() - targetDirection) <= TURN_PRECISION) {
-        motorAgua.setSpeed(0);
-        currentState = MOVING_FORWARD;
-      }
+      turnToDirection(TURN_ANGLE); // turn 5 degrees
       break;
 
     case STOPPED:
@@ -318,6 +412,7 @@ void robotLogic() {
 
 void setup()
 {
+  Serial.begin(9600); // Initialize serial communication for debugging
   setup_wifi(); // Connect to WiFi
   setup_ota(); // Setup OTA updates
   setup_web_server(); // Setup web server
@@ -325,17 +420,23 @@ void setup()
   led.init();
   motorMovimiento.init(); // Initialize movement motor
   motorAgua.init(); // Initialize water motor
-  mpu.init(); // Initialize MPU9250 sensor
 
-  Serial.begin(9600); // Initialize serial communication for debugging
+  Wire.begin(SDA_PIN, SCL_PIN);
+  mpu.setWire(&Wire);
+
+  if (!bmp.begin(0x76)) {
+    logBuffer.println("Could not find a valid BMP280 sensor, check wiring!");
+  }
+
+  mpu.beginAccel();
+  mpu.beginGyro();
 }
 
 void loop() {
   // Handle OTA updates and robot logic
   ArduinoOTA.handle();
   robotLogic();
-
+  updatePosition();
+  updateYaw(); // Update yaw angle based on gyro data
   led.handleBlink();
-
-  delay(500); // Small delay for stability
 }

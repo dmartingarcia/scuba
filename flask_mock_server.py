@@ -21,6 +21,7 @@ def status():
     data = {
         "state": "MOVING_FORWARD",
         "yaw": 123,
+        "angle": 45,  # Simulated angle
         "map": mock_map,
     }
     # Store robot position separately instead of trying to attach to the list
@@ -30,6 +31,7 @@ def status():
         {
             "state": data["state"],
             "yaw": data["yaw"],
+            "angle": data["angle"],
             "map": data["map"],
             "robot_position": {"x": robot_x, "y": robot_y},
         }

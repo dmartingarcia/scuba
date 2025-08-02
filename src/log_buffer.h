@@ -8,13 +8,18 @@ public:
     LogBuffer(size_t maxLen = 2000, size_t trimTo = 1500)
         : maxLength(maxLen), trimLength(trimTo) {}
 
-    void println(const String& msg) {
+    void print(const String& msg) {
         add(msg);
+        Serial.print(msg);
+    }
+
+    void println(const String& msg) {
+        add(msg + "\n");
         Serial.println(msg);
     }
 
     void add(const String& msg) {
-        buffer += msg + "\n";
+        buffer += msg;
         if (buffer.length() > maxLength) {
             int idx = buffer.indexOf('\n', buffer.length() - trimLength);
             if (idx > 0) buffer = buffer.substring(idx + 1);

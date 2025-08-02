@@ -13,10 +13,12 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
 <body>
   <h1>Robot Vacuum Control</h1>
   <p>Status: <span id="status">Stopped</span></p>
-  <p>Orientation: <span id="orientation">0°</span></p>
+  <p>Angle: <span id="angle">0°</span></p>
+  <p>Yaw: <span id="yaw">0°</span></p>
 
   <button class="button" onclick="controlRobot('start')">Start</button>
   <button class="button" onclick="controlRobot('stop')">Stop</button>
+  <button class="button" onclick="controlRobot('turn')">Turn</button>
 
   <h2>Cleaning Progress</h2>
   <canvas id="cleaningMap" width="300" height="300"></canvas>
@@ -37,7 +39,8 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
         if (this.readyState == 4 && this.status == 200) {
           var data = JSON.parse(this.responseText);
           document.getElementById("status").innerHTML = data.state;
-          document.getElementById("orientation").innerHTML = data.yaw + "°";
+          document.getElementById("angle").innerHTML = data.angle + "°";
+          document.getElementById("yaw").innerHTML = data.yaw + "°";
           drawMap(data.map);
         }
       };
