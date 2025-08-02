@@ -140,7 +140,18 @@ void updateYaw() {
     return; // No gyro data, cannot update yaw
   }
 
-  if (abs(gX) > 2.0) {
+  result = mpu.gyroUpdate();
+  if (result == 0) {
+    gX = (mpu.gyroX() + gZ) / 2;
+    gY = (mpu.gyroY() + gY) / 2;
+    gZ = (mpu.gyroZ() + gZ) / 2;
+    //logBuffer.println("gyroX: " + String(gX) + " gyroY: " + String(gY) + " gyroZ: " + String(gZ));
+  } else {
+    logBuffer.println("Cannot read gyro values " + String(result));
+    return; // No gyro data, cannot update yaw
+  }
+
+  if (abs(gX) > 5.0) { // Threshold to avoid noise
     yaw += gX * dt; // Integración simple
   }
 
