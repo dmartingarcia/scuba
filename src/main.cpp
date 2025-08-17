@@ -61,6 +61,8 @@ long nextTimeLogic = 1000; // For controlling logic execution frequency, startup
 long nextUpdate = 0; // for preventing updating sensor al the times
 long timeToAutostart = DELAY_AUTOSTART; // Time to wait before starting the robot after setup
 long nextPositionUpdate = 0; // For updating position every 2 seconds
+long maxTurningMillis = 0;
+long timeout = 0; // Timeout for turning
 
 // Movement parameters
 const float WALL_ANGLE_THRESHOLD = 75.0; // Degrees for wall detection
@@ -354,9 +356,9 @@ void turnToDirection(int targetDegrees) {
 
     motorAgua.setSpeed(AGUA_IDLE_SPEED); // Stop water motor
 
-    if(movement == MOVING_FORWARD) {
+    if(previousState == MOVING_FORWARD) {
         currentState = MOVING_BACKWARD; // Change state to moving backward after turning
-    } else if(movement == MOVING_BACKWARD) {
+    } else {
         currentState = MOVING_FORWARD; // Change state to moving forward after turning
     }
 
@@ -368,8 +370,10 @@ void handleWallDetection() {
     // Wall detected, stop and turn
     motorMovimiento.setSpeed(0);
     delay(500);
-    movement = currentState;
+    previousState = currentState;
     currentState = TURNING;
+    maxTurningMillis = millis() + MAX_TIME_TURNING;
+    timeout = millis();
   }
 }
 
@@ -380,7 +384,16 @@ void robotLogic() {
   logBuffer.println("------ Millis: " + String(millis()) + " IP address: " + WiFi.localIP().toString());
   logBuffer.println("Inclination: " + String(angle()) + " Yaw: " + String(yaw));
   logBuffer.println("Temperature: " + String(temp) + " C" + " Pressure: " + String(pressure) + " Pa");
-  logBuffer.println("Movement: " + resolveState(movement) + " Current State: " + resolveState(currentState));
+  logBuffer.println("Previous Movement: " + resolveState(previousState) + " Current State: " + resolveState(currentState));
+
+  if ((millis() - timeout) > 100000){ // Set timeout for movement in 100 seconds
+    if (currentState == MOVING_FORWARD) {
+      // Handle timeout for moving forward
+      currentState = MOVING_BACKWARD;
+    } else {
+      currentState = MOVING_FORWARD;
+    }
+  }
 
   switch (currentState) {
     case STARTING:
