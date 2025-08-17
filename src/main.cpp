@@ -24,7 +24,7 @@
 #define MOVIMIENTO_L_ENABLE 4 // Not used in this example, but can be connected to Arduino pin 7 if needed
 #define SDA_PIN 7
 #define SCL_PIN 6
-#define MAX_TIME_TURNING 5000
+#define MAX_TIME_TURNING 10000
 #define DELAY_UPDATING_SENSORS 100
 #define DELAY_AUTOSTART 30000
 #define DELAY_UPDATING_POSITION 2000 // Delay for updating position in milliseconds
@@ -50,7 +50,7 @@ enum RobotState {
   STARTING
 };
 RobotState currentState = STARTING; // TODO: Initial state while debugging, should be STARTING
-RobotState movement = MOVING_FORWARD; // Default movement state
+RobotState previousState = STARTING; // Default movement state
 
 // Cleaning area tracking
 const int GRID_SIZE = 30; // 200x200 grid
@@ -65,14 +65,14 @@ long maxTurningMillis = 0;
 long timeout = 0; // Timeout for turning
 
 // Movement parameters
-const float WALL_ANGLE_THRESHOLD = 75.0; // Degrees for wall detection
+const float WALL_ANGLE_THRESHOLD = 45.0; // Degrees for wall detection
+const float WALL_ANGLE_RECOVER_THRESHOLD = 10.0; // Degrees to consider the robot upright
 const float FLOOR_INCLINATION_PRECISION = 10; // Minimum inclination to consider the robot upright
-
-const float MOVIMIENTO_MOVE_SPEED = 200; // Speed for movement
+const float MOVIMIENTO_MOVE_SPEED = 100; // Speed for movement
 const float MOVIMIENTO_IDLE_SPEED = 50; // Speed for turning
 const float AGUA_TURN_SPEED = 255;
-const float AGUA_MOVE_SPEED = 230;
-const float AGUA_IDLE_SPEED = 50; // Speed when not moving
+const float AGUA_MOVE_SPEED = 240;
+const float AGUA_IDLE_SPEED = 180; // Speed when not moving
 
 float yaw = 0;
 unsigned long lastYawUpdate = 0;
@@ -298,7 +298,7 @@ void updatePosition() {
 
   if(currentState == MOVING_FORWARD) {
     direction = 1;
-  } else if(currentState == MOVING_BACKWARD) {
+  } else {
     direction = -1; // Moving backward
   }
 
@@ -319,23 +319,6 @@ void updatePosition() {
 
 void turnToDirection(int targetDegrees) {
     float currentYaw = yaw;
-    long maxTurningMillis = 0;
-
-    motorAgua.setSpeed(AGUA_IDLE_SPEED); // Start turning
-    maxTurningMillis = millis() + MAX_TIME_TURNING;
-
-    logBuffer.println("Turning to target yaw: " + String(currentYaw - targetDegrees) + "- " + String(currentYaw + targetDegrees) + " from current yaw: " + String(yaw));
-
-    while(abs(angle()) > FLOOR_INCLINATION_PRECISION) {
-      if (currentState == MOVING_FORWARD) {
-        motorMovimiento.setSpeed(-MOVIMIENTO_IDLE_SPEED);
-      } else if (currentState == MOVING_BACKWARD) {
-        motorMovimiento.setSpeed(MOVIMIENTO_IDLE_SPEED);
-      }
-    }
-
-    // Stop movement motor while turning
-    motorMovimiento.setSpeed(0);
     float minTargetYaw = currentYaw - targetDegrees;
     float maxTargetYaw = currentYaw + targetDegrees;
 
@@ -347,11 +330,31 @@ void turnToDirection(int targetDegrees) {
       minTargetYaw += 360; // Normalize range
     }
 
+    logBuffer.println("Turning to target yaw: " + String(minTargetYaw) + "- " + String(maxTargetYaw) + " from current yaw: " + String(yaw));
+    motorAgua.setSpeed(AGUA_IDLE_SPEED); // Start turning
+
+    while(maxTurningMillis > millis() && abs(angle()) > WALL_ANGLE_RECOVER_THRESHOLD) {
+      if (previousState == MOVING_FORWARD) {
+        motorMovimiento.setSpeed(-MOVIMIENTO_IDLE_SPEED);
+      } else {
+        motorMovimiento.setSpeed(MOVIMIENTO_IDLE_SPEED);
+      }
+
+      delay(100); // Small delay to prevent excessive CPU usage
+      logBuffer.println("Coming back to angle: " + String(angle()));
+    }
+
+    // Stop movement motor while turning
+    motorMovimiento.setSpeed(0);
+    motorAgua.setSpeed(AGUA_IDLE_SPEED); // Keep turning
+
     while(maxTurningMillis > millis() && (std::max(minTargetYaw, maxTargetYaw) < yaw || std::min(minTargetYaw, maxTargetYaw) > yaw)) {
       updateYaw(); // Update yaw angle based on gyro data
       motorAgua.setSpeed(AGUA_TURN_SPEED); // Keep turning
       logBuffer.println("Turning... Yaw: " + String(yaw) + " Target -> min:" + String(minTargetYaw) + " - max:" + String(maxTargetYaw));
-      delay(50); // Small delay to prevent excessive CPU usage
+      delay(500); // Small delay to prevent excessive CPU usage
+      motorAgua.setSpeed(AGUA_IDLE_SPEED); // Keep turning
+      delay(500); // Small delay to prevent excessive CPU usage
     }
 
     motorAgua.setSpeed(AGUA_IDLE_SPEED); // Stop water motor
