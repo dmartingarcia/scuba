@@ -180,7 +180,13 @@ float direction(){
   return 0; // Fake MPU9250 , it doesnt have magnetometer
 }
 
+long timeToConnectWifi = 0; // Time to connect to WiFi
+
 void setup_wifi() {
+  if (timeToConnectWifi > millis()) {
+    return;
+  }
+
   logBuffer.println("Connecting to WiFi...");
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   int retries = 40;
@@ -193,6 +199,7 @@ void setup_wifi() {
       logBuffer.println("Failed to connect to WiFi. Please check your credentials.");
       return;
     }
+    timeToConnectWifi = millis() + 60000; // 60 seconds to connect
   }
 
   logBuffer.println("");
