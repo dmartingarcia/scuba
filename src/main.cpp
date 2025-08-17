@@ -398,8 +398,13 @@ void robotLogic() {
         return;
       }
 
-      motorAgua.setSpeed(AGUA_IDLE_SPEED);
+      motorAgua.setSpeed(AGUA_TURN_SPEED); // Stop water motor
       motorMovimiento.setSpeed(10); // Start moving forward slowly
+      delay(1000); // Allow some time to start moving
+      motorAgua.setSpeed(AGUA_MOVE_SPEED); // Set water motor speed
+      delay(1000); // Allow some time to start moving
+      motorAgua.setSpeed(AGUA_IDLE_SPEED); // Stop water motor
+      delay(1000); // Allow some time to start moving
 
       currentState = MOVING_FORWARD;
       logBuffer.println("Robot started and ready to move.");
