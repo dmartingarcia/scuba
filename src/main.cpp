@@ -29,6 +29,7 @@
 #define DELAY_AUTOSTART 30000
 #define DELAY_UPDATING_POSITION 2000 // Delay for updating position in milliseconds
 #define TURN_ANGLE 15 // Degrees to turn when changing direction
+#define MOVING_TIMEOUT 100000 // Timeout for movement in milliseconds
 float aX, aY, aZ, aSqrt, gX, gY, gZ, mDirection, mX, mY, mZ, temp, pressure;
 
 // Web server
@@ -389,13 +390,15 @@ void robotLogic() {
   logBuffer.println("Temperature: " + String(temp) + " C" + " Pressure: " + String(pressure) + " Pa");
   logBuffer.println("Previous Movement: " + resolveState(previousState) + " Current State: " + resolveState(currentState));
 
-  if ((millis() - timeout) > 100000){ // Set timeout for movement in 100 seconds
+  if ((millis() - timeout) > MOVING_TIMEOUT){ // Set timeout for movement in 100 seconds
     if (currentState == MOVING_FORWARD) {
       // Handle timeout for moving forward
       currentState = MOVING_BACKWARD;
     } else {
       currentState = MOVING_FORWARD;
     }
+    timeout = millis();
+    logBuffer.println("Movement timeout reached, changing state to: " + resolveState(currentState
   }
 
   switch (currentState) {
