@@ -10,6 +10,7 @@
 #include "secrets.h"
 #include "turn_math.h"
 #include "position_math.h"
+#include "wifi_timing.h"
 #include "index.h" // HTML content for the web interface
 #include "log_buffer.h" // Custom log buffer class for managing logs
 #include "Adafruit_BMP280.h" // BMP280 sensor library
@@ -207,6 +208,18 @@ void setup_wifi() {
   logBuffer.println("WiFi connected");
   logBuffer.println("IP address: ");
   logBuffer.println(WiFi.localIP().toString());
+}
+
+// Non-blocking: call every loop() iteration. Re-triggers WiFi.begin() on a
+// throttled interval if the connection ever drops, instead of only
+// connecting once at boot.
+void maintainWifi() {
+  if (WiFi.status() == WL_CONNECTED) return;
+  if (!isReconnectDue(millis(), timeToConnectWifi)) return;
+
+  logBuffer.println("WiFi disconnected, attempting reconnect...");
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  timeToConnectWifi = nextReconnectAttempt(millis(), 60000);
 }
 
 void setup_ota() {
@@ -460,6 +473,7 @@ void setup()
 void loop() {
   // Handle OTA updates and robot logic
   ArduinoOTA.handle();
+  maintainWifi();
   robotLogic();
   updatePosition();
   updateYaw(); // Update yaw angle based on gyro data
