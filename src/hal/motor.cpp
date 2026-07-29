@@ -1,6 +1,6 @@
 #include "motor.h"
 #include <Arduino.h>
-#include "speed_utils.h"
+#include "../logic/speed_utils.h"
 
 bool Motor::init() {
     pinMode(rpwmPin, OUTPUT);

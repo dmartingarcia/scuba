@@ -5,16 +5,22 @@
 #include <Wire.h>
 #include <EEPROM.h>
 #include <ArduinoOTA.h>
-#include "motor.h"
-#include "led.h"
+#include "hal/motor.h"
+#include "hal/led.h"
 #include "secrets.h"
-#include "turn_math.h"
-#include "position_math.h"
-#include "wifi_timing.h"
+#include "logic/turn_math.h"
+#include "logic/position_math.h"
+#include "logic/wifi_timing.h"
 #include "index.h" // HTML content for the web interface
 #include "log_buffer.h" // Custom log buffer class for managing logs
 #include "Adafruit_BMP280.h" // BMP280 sensor library
-#include "MPU9250_asukiaaa.h" // MPU9250 sensor library
+#include "hal/imu.h"
+#include "logic/imu_detect.h"
+#include "hal/imu_mpu9250.h"
+#include "hal/imu_lsm6ds3.h"
+
+#define LSM6DS3_WHO_AM_I_ADDR 0x6A
+#define LSM6DS3_WHO_AM_I_REG 0x0F
 
 // Pin definitions for the motors and sensors
 #define AGUA_RPWM_Output 13 // Arduino PWM output pin 5; connect to IBT-2 pin 1 (RPWM)
@@ -42,7 +48,7 @@ Motor motorMovimiento(MOVIMIENTO_RPWM_Output, MOVIMIENTO_LPWM_Output, MOVIMIENTO
 Motor motorAgua(AGUA_RPWM_Output, AGUA_LPWM_Output, AGUA_R_ENABLE, AGUA_L_ENABLE);
 Led led(LED_BUILTIN);
 Adafruit_BMP280 bmp; // BMP280 sensor object
-MPU9250_asukiaaa mpu; // MPU9250 sensor object
+ImuSensor* imu = nullptr; // Set in setup() once the physical chip is detected
 LogBuffer logBuffer;
 
 // Robot state
@@ -98,9 +104,6 @@ void update(){
   }
   nextUpdate += DELAY_UPDATING_SENSORS;
 
-  uint8_t sensorId;
-  int result;
-
   bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,
                   Adafruit_BMP280::SAMPLING_X16,
                   Adafruit_BMP280::SAMPLING_X16,
@@ -110,22 +113,10 @@ void update(){
   pressure = bmp.readPressure();
   //logBuffer.println("Temperature: " + String(temp) + " C - Pressure: " + String(pressure) + " Pa");
 
-  result = mpu.readId(&sensorId);
-  if (result == 0) {
-    //logBuffer.println("sensorId: " + String(sensorId));
-  } else {
-    logBuffer.println("Cannot read sensorId " + String(result));
-  }
-
-  result = mpu.accelUpdate();
-  if (result == 0) {
-    aX = mpu.accelX();
-    aY = mpu.accelY();
-    aZ = mpu.accelZ();
-    aSqrt = mpu.accelSqrt();
+  if (imu->readAccel(aX, aY, aZ, aSqrt)) {
     //logBuffer.println("accel - X:" + String(aX) + " Y:" + String(aY) +" Z:" + String(aZ) + " Sqrt:" + String(aSqrt));
   } else {
-    logBuffer.println("Cannot read accel values " + String(result));
+    logBuffer.println("Cannot read accel values");
   }
 }
 
@@ -133,27 +124,19 @@ void updateYaw() {
   unsigned long now = millis();
   float dt = (now - lastYawUpdate) / 1000.0; // en segundos
   lastYawUpdate = now;
-  int result;
 
-  result = mpu.gyroUpdate();
-  if (result == 0) {
-    gX = mpu.gyroX();
-    gY = mpu.gyroY();
-    gZ = mpu.gyroZ();
-    //logBuffer.println("gyroX: " + String(gX) + " gyroY: " + String(gY) + " gyroZ: " + String(gZ));
-  } else {
-    logBuffer.println("Cannot read gyro values " + String(result));
+  if (!imu->readGyro(gX, gY, gZ)) {
+    logBuffer.println("Cannot read gyro values");
     return; // No gyro data, cannot update yaw
   }
 
-  result = mpu.gyroUpdate();
-  if (result == 0) {
-    gX = (mpu.gyroX() + gX) / 2;
-    gY = (mpu.gyroY() + gY) / 2;
-    gZ = (mpu.gyroZ() + gZ) / 2;
-    //logBuffer.println("gyroX: " + String(gX) + " gyroY: " + String(gY) + " gyroZ: " + String(gZ));
+  float gX2, gY2, gZ2;
+  if (imu->readGyro(gX2, gY2, gZ2)) {
+    gX = (gX2 + gX) / 2;
+    gY = (gY2 + gY) / 2;
+    gZ = (gZ2 + gZ) / 2;
   } else {
-    logBuffer.println("Cannot read gyro values " + String(result));
+    logBuffer.println("Cannot read gyro values");
     return; // No gyro data, cannot update yaw
   }
 
@@ -460,14 +443,29 @@ void setup()
   motorAgua.init(); // Initialize water motor
 
   Wire.begin(SDA_PIN, SCL_PIN);
-  mpu.setWire(&Wire);
 
   if (!bmp.begin(0x76)) {
     logBuffer.println("Could not find a valid BMP280 sensor, check wiring!");
   }
 
-  mpu.beginAccel();
-  mpu.beginGyro();
+  // Probe the LSM6DS3's WHO_AM_I register to auto-detect which IMU chip is
+  // wired up - old MPU9250 or new LSM6DS3 - no rebuild needed to swap.
+  uint8_t whoAmI = 0;
+  Wire.beginTransmission(LSM6DS3_WHO_AM_I_ADDR);
+  Wire.write(LSM6DS3_WHO_AM_I_REG);
+  Wire.endTransmission(false);
+  Wire.requestFrom((int)LSM6DS3_WHO_AM_I_ADDR, 1);
+  if (Wire.available()) {
+    whoAmI = Wire.read();
+  }
+
+  if (detectImuType(whoAmI) == ImuType::LSM6DS3) {
+    imu = new Lsm6ds3Imu(LSM6DS3_WHO_AM_I_ADDR);
+  } else {
+    imu = new Mpu9250Imu(&Wire);
+  }
+  imu->begin();
+  logBuffer.println("IMU detected: " + String(imu->name()));
 }
 
 void loop() {

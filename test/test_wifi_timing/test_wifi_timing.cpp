@@ -1,5 +1,5 @@
 #include <unity.h>
-#include "../../src/wifi_timing.h"
+#include "../../src/logic/wifi_timing.h"
 
 void setUp(void) {}
 void tearDown(void) {}

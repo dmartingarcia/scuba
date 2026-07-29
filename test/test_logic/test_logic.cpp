@@ -1,7 +1,7 @@
 #include <unity.h>
-#include "../../src/speed_utils.h"
-#include "../../src/turn_math.h"
-#include "../../src/position_math.h"
+#include "../../src/logic/speed_utils.h"
+#include "../../src/logic/turn_math.h"
+#include "../../src/logic/position_math.h"
 
 void setUp(void) {}
 void tearDown(void) {}
