@@ -35,6 +35,7 @@ void setup() {
 
   imu = detectAndBeginImu(Wire); // Auto-detects MPU9250 vs LSM6DS3
   logBuffer.println("IMU detected: " + String(imu->name()));
+  logBuffer.println(String("Magnetometer: ") + (imu->hasMagnetometer() ? "present (real WHO_AM_I probe passed)" : "absent/not responding"));
 
   // Default turn strategy per chip - override anytime via /config?turnStrategy=
   turnStrategy = imu->hasReliableGyro() ? TurnStrategy::Legacy : TurnStrategy::FixedDuration;

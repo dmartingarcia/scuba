@@ -71,6 +71,8 @@ void setupWebServer() {
     doc["y"] = currentY;
     doc["sessionDurationMinutes"] = sessionDurationMs / 60000;
     doc["sessionElapsedSeconds"] = (millis() - sessionStartMillis) / 1000;
+    doc["imuName"] = imu->name();
+    doc["imuHasMagnetometer"] = imu->hasMagnetometer();
 
     JsonObject maintenance = doc["maintenance"].to<JsonObject>();
     maintenance["bootCount"] = maintenanceStats.bootCount;

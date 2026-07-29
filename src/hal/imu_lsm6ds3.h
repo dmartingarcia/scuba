@@ -32,6 +32,10 @@ public:
 
     bool hasReliableGyro() const override { return true; }
 
+    // 6-axis chip - no magnetometer exists on this hardware, period.
+    bool hasMagnetometer() override { return false; }
+    bool readHeading(float &heading) override { (void)heading; return false; }
+
 private:
     LSM6DS3 imu;
 };

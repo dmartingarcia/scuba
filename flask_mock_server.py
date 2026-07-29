@@ -31,6 +31,8 @@ def status():
             "y": mock_position["y"],
             "sessionDurationMinutes": mock_session["durationMinutes"],
             "sessionElapsedSeconds": 90,
+            "imuName": "MPU9250",
+            "imuHasMagnetometer": False,
             "maintenance": mock_maintenance,
             "map": mock_map,
         }
