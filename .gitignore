@@ -9,3 +9,4 @@ src/secrets.h
 *.profdata
 coverage.info
 coverage_html/
+ui_screenshot.png

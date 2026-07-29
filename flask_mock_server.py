@@ -4,9 +4,14 @@ from flask import Flask, send_from_directory, jsonify, request
 
 app = Flask(__name__, static_folder="src")
 
-# Mock data
-mock_map = [[1 if (x + y) % 7 == 0 else 0 for x in range(20)] for y in range(20)]
-mock_map_data = {"x": 10, "y": 10}
+# Mock data - shape must match the real firmware's /status and /config
+# (src/net/web_server.cpp) so the UI behaves the same against both.
+GRID_SIZE = 30
+mock_map = [[(x + y) % 7 == 0 for x in range(GRID_SIZE)] for y in range(GRID_SIZE)]
+mock_position = {"x": 15, "y": 15}
+mock_session = {"durationMinutes": 0, "startedAtSeconds": 0}
+mock_stats_save_interval_minutes = 10
+mock_maintenance = {"bootCount": 3, "totalRuntimeHours": 12.5}
 mock_logs = "Log de ejemplo\nRobot iniciado\nMovimiento adelante\n..."
 
 
@@ -17,23 +22,17 @@ def index():
 
 @app.route("/status")
 def status():
-    # Simula el estado del robot
-    data = {
-        "state": "MOVING_FORWARD",
-        "yaw": 123,
-        "angle": 45,  # Simulated angle
-        "map": mock_map,
-    }
-    # Store robot position separately instead of trying to attach to the list
-    robot_x = mock_map_data["x"]
-    robot_y = mock_map_data["y"]
     return jsonify(
         {
-            "state": data["state"],
-            "yaw": data["yaw"],
-            "angle": data["angle"],
-            "map": data["map"],
-            "robot_position": {"x": robot_x, "y": robot_y},
+            "state": "MOVING_FORWARD",
+            "angle": 45,
+            "yaw": 123,
+            "x": mock_position["x"],
+            "y": mock_position["y"],
+            "sessionDurationMinutes": mock_session["durationMinutes"],
+            "sessionElapsedSeconds": 90,
+            "maintenance": mock_maintenance,
+            "map": mock_map,
         }
     )
 
@@ -41,8 +40,33 @@ def status():
 @app.route("/control")
 def control():
     action = request.args.get("action", "")
-    print(f"Acción recibida: {action}")
+    print(f"Accion recibida: {action}")
+    if action == "start" and "duration" in request.args:
+        mock_session["durationMinutes"] = int(request.args.get("duration", 0))
     return "OK"
+
+
+@app.route("/config")
+def config():
+    if "sessionDuration" in request.args:
+        mock_session["durationMinutes"] = int(request.args["sessionDuration"])
+    global mock_stats_save_interval_minutes
+    if "statsSaveInterval" in request.args:
+        mock_stats_save_interval_minutes = int(request.args["statsSaveInterval"])
+    return jsonify(
+        {
+            "sessionDurationMinutes": mock_session["durationMinutes"],
+            "statsSaveIntervalMinutes": mock_stats_save_interval_minutes,
+            "turnStrategy": "legacy",
+        }
+    )
+
+
+@app.route("/errors")
+def errors():
+    if request.args.get("action") == "clear":
+        return "OK"
+    return jsonify({"entries": []})
 
 
 @app.route("/logs")
