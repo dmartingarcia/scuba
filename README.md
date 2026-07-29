@@ -107,9 +107,19 @@ Boot count and total active-cleaning hours are persisted to LittleFS (`src/app/m
 - `GET /errors` - JSON list of logged faults (code, name, timestamp, whether still active)
 - `GET /errors?action=clear` - wipes the log, like clearing codes on a scan tool
 
-### Gyro-dependent turning (dual IMU)
+### Turn strategies
 
-Some MPU9250 units have unreliable gyro output in practice. `ImuSensor::hasReliableGyro()` lets `robot_logic.cpp` pick the turn strategy per detected chip: LSM6DS3 gets a precise gyro-tracked turn (`turnByGyro`), MPU9250 falls back to a fixed-duration spin (`turnByDuration`, `TURN_DURATION_MS` in `config.h` - a rough default, tune on real hardware). A turn that runs out the safety timeout without completing logs `TurnTimeout`.
+Turning has always been finicky on this robot: it turns by thrust against water (not wheels), so each attempt rotates a variable amount, and the MPU9250's gyro is unreliable in practice. Rather than commit to one fix, turning is pluggable (`src/app/turn_controller.h` - same interface shape as `ImuSensor`) with three interchangeable strategies:
+
+| Strategy   | Class               | How it works                                                                 |
+|------------|----------------------|-------------------------------------------------------------------------------|
+| `legacy`   | `LegacyGyroTurn`     | Original behavior: track yaw via raw gyro integration until in range           |
+| `duration` | `FixedDurationTurn`  | No yaw tracking - pulse the motor for a calibrated fixed time (`TURN_DURATION_MS` in `config.h`, rough default, tune on hardware) |
+| `kalman`   | `KalmanGyroTurn`     | Track yaw via a Kalman-smoothed gyro rate (`logic/kalman_filter.h`) - reduces noise, does **not** correct long-term drift (no magnetometer/absolute yaw reference exists near the motors) |
+
+Defaults per detected IMU at boot (`ImuSensor::hasReliableGyro()`): `legacy` for LSM6DS3, `duration` for MPU9250. Override anytime via `/config?turnStrategy=legacy|duration|kalman` to experiment on real hardware. A turn that runs out the safety timeout without completing logs `TurnTimeout` regardless of strategy.
+
+If a turn doesn't fully rotate the robot, that's expected and self-corrects: `handleWallDetection()` re-triggers `TURNING` on the next cycle if the wall/tilt condition still holds.
 
 ### Regenerating the UI
 

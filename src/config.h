@@ -24,6 +24,12 @@
 // ImuSensor::hasReliableGyro()) - rough default, tune on real hardware.
 #define TURN_DURATION_MS 3000
 
+// Kalman gyro-rate filter tuning (see logic/kalman_filter.h). Higher process
+// noise trusts new readings more; higher measurement noise trusts the
+// running estimate more (smooths a noisier gyro harder).
+#define KALMAN_PROCESS_NOISE 0.01f
+#define KALMAN_MEASUREMENT_NOISE 4.0f
+
 #define GRID_SIZE 30 // Cleaning-progress tracking grid, 30x30 cells
 
 #define LSM6DS3_WHO_AM_I_ADDR 0x6A

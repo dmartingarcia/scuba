@@ -3,7 +3,7 @@
 #include "../globals.h"
 #include "sensors.h"
 #include "error_reporter.h"
-#include "../logic/turn_math.h"
+#include "turn_controller.h"
 #include "../logic/session_timer.h"
 
 static void recoverFromWall() {
@@ -20,45 +20,12 @@ static void recoverFromWall() {
   motorMovimiento.setSpeed(0);
 }
 
-// Precise turn: track yaw via the gyro until it leaves the target window.
-static bool turnByGyro(int targetDegrees) {
-  YawRange targetRange = computeTurnRange(yaw, targetDegrees);
-  logBuffer.println("Turning (gyro) to target yaw: " + String(targetRange.min) + "- " + String(targetRange.max) + " from current yaw: " + String(yaw));
-
-  while (maxTurningMillis > (long)millis() && isYawOutsideRange(yaw, targetRange)) {
-    updateYaw(); // Update yaw angle based on gyro data
-    motorAgua.setSpeed(AGUA_TURN_SPEED); // Keep turning
-    logBuffer.println("Turning... Yaw: " + String(yaw) + " Target -> min:" + String(targetRange.min) + " - max:" + String(targetRange.max));
-    delay(500); // Small delay to prevent excessive CPU usage
-    motorAgua.setSpeed(AGUA_IDLE_SPEED); // Keep turning
-    delay(500); // Small delay to prevent excessive CPU usage
-  }
-
-  return !isYawOutsideRange(yaw, targetRange); // true = reached target, false = timed out
-}
-
-// Fallback for IMUs whose gyro isn't trustworthy (MPU9250, see
-// ImuSensor::hasReliableGyro()): just spin for a fixed duration.
-static bool turnByDuration() {
-  logBuffer.println("Turning (fixed duration - gyro not reliable on this IMU)");
-  unsigned long turnStart = millis();
-
-  while (maxTurningMillis > (long)millis() && !isTimeElapsed(millis(), turnStart, TURN_DURATION_MS)) {
-    motorAgua.setSpeed(AGUA_TURN_SPEED); // Keep turning
-    delay(500); // Small delay to prevent excessive CPU usage
-    motorAgua.setSpeed(AGUA_IDLE_SPEED); // Keep turning
-    delay(500); // Small delay to prevent excessive CPU usage
-  }
-
-  return isTimeElapsed(millis(), turnStart, TURN_DURATION_MS); // true = completed, false = timed out
-}
-
 static void turnToDirection(int targetDegrees) {
   motorAgua.setSpeed(AGUA_IDLE_SPEED); // Start turning
   recoverFromWall();
   motorAgua.setSpeed(AGUA_IDLE_SPEED); // Keep turning
 
-  bool completed = imu->hasReliableGyro() ? turnByGyro(targetDegrees) : turnByDuration();
+  bool completed = turnControllerFor(turnStrategy).turn(targetDegrees);
 
   motorAgua.setSpeed(AGUA_IDLE_SPEED); // Stop water motor
 

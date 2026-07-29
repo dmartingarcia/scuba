@@ -47,10 +47,14 @@ void setupWebServer() {
     if (request->hasParam("statsSaveInterval")) {
       statsSaveIntervalMs = (unsigned long)request->getParam("statsSaveInterval")->value().toInt() * 60000UL;
     }
+    if (request->hasParam("turnStrategy")) {
+      turnStrategy = parseTurnStrategy(request->getParam("turnStrategy")->value().c_str(), turnStrategy);
+    }
 
     JsonDocument doc;
     doc["sessionDurationMinutes"] = sessionDurationMs / 60000;
     doc["statsSaveIntervalMinutes"] = statsSaveIntervalMs / 60000;
+    doc["turnStrategy"] = turnStrategyName(turnStrategy);
 
     String response;
     serializeJson(doc, response);

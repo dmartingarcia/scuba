@@ -12,6 +12,7 @@
 #include "app/robot_state.h"
 #include "logic/maintenance_stats.h"
 #include "logic/error_log.h"
+#include "logic/turn_strategy.h"
 
 // Shared robot state, defined once in globals.cpp. Every module that reads
 // or drives the robot (sensors, robot_logic, position_tracker, web_server,
@@ -57,5 +58,9 @@ extern MaintenanceStats maintenanceStats;
 
 // ECU-style fault log: persisted, deduped while a fault stays active.
 extern ErrorLog errorLog;
+
+// Which turn strategy to use - defaulted per detected IMU in setup(),
+// overridable at runtime via /config?turnStrategy=legacy|duration|kalman
+extern TurnStrategy turnStrategy;
 
 #endif // GLOBALS_H

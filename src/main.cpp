@@ -36,6 +36,9 @@ void setup() {
   imu = detectAndBeginImu(Wire); // Auto-detects MPU9250 vs LSM6DS3
   logBuffer.println("IMU detected: " + String(imu->name()));
 
+  // Default turn strategy per chip - override anytime via /config?turnStrategy=
+  turnStrategy = imu->hasReliableGyro() ? TurnStrategy::Legacy : TurnStrategy::FixedDuration;
+
   maintenanceInit(); // Load persisted stats, record this boot
 }
 
