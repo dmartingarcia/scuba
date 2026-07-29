@@ -5,3 +5,7 @@
 .vscode/ipch
 src/secrets.h
 .DS_Store
+*.profraw
+*.profdata
+coverage.info
+coverage_html/

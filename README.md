@@ -89,11 +89,16 @@ Served by the ESP32 on port 80 once connected to WiFi. None of these endpoints r
 | Endpoint          | Method | Description                                                                 |
 |-------------------|--------|-------------------------------------------------------------------------------|
 | `/`               | GET    | Serves the control UI (`src/index.html`, baked into firmware as `src/index.h`) |
-| `/status`         | GET    | JSON: current state, tilt angle, yaw, cleaned-area grid, robot x/y position    |
-| `/control?action=`| GET    | Drive the state machine: `action=start` / `stop` / `turn`                     |
+| `/status`         | GET    | JSON: state, tilt angle, yaw, cleaned-area grid, robot x/y, session progress, maintenance stats |
+| `/control?action=`| GET    | Drive the state machine: `action=start` (optional `&duration=<minutes>`, 0/omitted = unlimited) / `stop` / `turn` |
+| `/config`         | GET    | Runtime settings: `?sessionDuration=<min>` and/or `?statsSaveInterval=<min>` (0 = only save on session end). Returns current values as JSON. |
 | `/logs`           | GET    | Plain-text tail of the in-memory log buffer (last ~1500 chars)                |
 
 OTA updates (`ArduinoOTA`) are also enabled with no password set — same caveat applies.
+
+### Maintenance stats
+
+Boot count and total active-cleaning hours are persisted to EEPROM (`src/app/maintenance.cpp`) across reboots, for wear/maintenance tracking. They're saved on `statsSaveInterval` (default 10 minutes) and always right when a cleaning session ends, so a power loss mid-run only risks losing the last few seconds. Read them from `/status` → `maintenance.bootCount` / `maintenance.totalRuntimeHours`.
 
 ### Regenerating the UI
 
@@ -118,13 +123,27 @@ python3 flask_mock_server.py
 
 ## Testing
 
-Pure logic (no hardware, no WiFi) is extracted into header-only modules — `src/speed_utils.h`, `src/turn_math.h`, `src/position_math.h` — and covered by native Unity tests that run on your machine, not the ESP32:
+Pure logic (no hardware, no WiFi) is extracted into header-only modules under `src/logic/` — speed clamping, turn-yaw math, grid position math, wifi reconnect timing, IMU chip detection, session timer, maintenance stats — and covered by native Unity tests that run on your machine, not the ESP32:
 
 ```sh
 pio test -e native
 ```
 
-This is the only test coverage that exists today. The state machine, sensor reads, and web server in `main.cpp` are still untested — they're tightly coupled to Arduino/WiFi globals. New pure logic extracted from `main.cpp` should get a native test alongside it rather than being tested by hand on hardware.
+Everything under `src/hal/` (motor/led/IMU drivers) and `src/app/` + `src/net/` (state machine, sensor reads, web server, wifi/OTA) is still untested by design — it's the hardware-facing glue and can't run without real hardware. New logic should be split so the decision-making part lands in `src/logic/` with a native test, and the hardware-touching part stays a thin wrapper around it (see `src/app/imu_setup.cpp` calling into `src/logic/imu_detect.h` for the pattern).
+
+### Coverage
+
+`env:native_coverage` (in `platformio.ini`) instruments the same tests for coverage. On macOS the native toolchain is clang, so it uses clang's source-based coverage rather than gcov (if your native toolchain is gcc/Linux, plain `--coverage` + `gcov`/`lcov` works the usual way instead):
+
+```sh
+LLVM_PROFILE_FILE="coverage.profraw" pio test -e native_coverage -f test_logic
+xcrun llvm-profdata merge -sparse coverage.profraw -o coverage.profdata
+xcrun llvm-cov report .pio/build/native_coverage/program -instr-profile=coverage.profdata src/logic/position_math.h
+```
+
+Swap `-f test_logic` and the last path for whichever suite/header you're checking (each suite builds its own binary at `.pio/build/native_coverage/program`, so one binary only carries coverage for the headers that suite includes - run/inspect one suite at a time rather than expecting a single combined report). Drop `xcrun` if you're not on macOS.
+
+Only `src/logic/` files have meaningful coverage to check — the rest isn't compiled into the native test binary at all (see `build_src_filter` in `platformio.ini`).
 
 ---
 
@@ -154,22 +173,16 @@ The dual H-bridge configuration provides precise control over the two drive moto
 Done:
 - [x] Add remote control via WiFi
 - [x] Add status LED indicators
+- [x] Dual IMU support (MPU9250 + LSM6DS3), auto-detected via I2C `WHO_AM_I` at boot — see `src/app/imu_setup.cpp` + `src/logic/imu_detect.h`
+- [x] Configurable cleaning timer — `/control?action=start&duration=<minutes>`, enforced in `robot_logic.cpp`
+- [x] Maintenance stats (boot count, total cleaning hours) persisted to EEPROM — `src/app/maintenance.cpp`
+- [x] Native unit test harness + CI (`.github/workflows/ci.yml`)
 
 Backlog:
 - [ ] Optimize cleaning patterns based on pool shape
+- [ ] Persist the `cleanedArea` coverage grid itself (currently RAM-only, resets on reboot — only the boot count/runtime stats are persisted so far)
 
 Planned — tackled one at a time, incrementally, so we never break a working robot:
-
-### Stats & history
-- Persist (EEPROM or flash FS) run stats across reboots: number of boots, total cleaning time, last session duration.
-- Persist the `cleanedArea` coverage grid (or a compressed/rasterized version) so the "where has it been" map survives a restart, not just RAM.
-
-### Dual IMU support (MPU9250 + new LSM6DS3)
-- Auto-detect which IMU is physically wired at boot: read the I2C `WHO_AM_I` register (or just probe both known I2C addresses) and pick MPU9250 vs LSM6DS3 accordingly — no manual `#define`/rebuild needed to swap hardware.
-- Wrap sensor access behind a small interface (`readAccel()`, `readGyro()`) so `main.cpp` logic doesn't care which chip answered.
-
-### Configurable cleaning timer
-- Let the UI set how long a cleaning run should last (a max-duration timer), instead of running forever until manually stopped.
 
 ### Home Assistant integration
 - Push robot state (paused / cleaning / finished) to Home Assistant so it shows up like any other HA entity — likely via HA's MQTT discovery or a simple REST sensor call from the ESP32.
