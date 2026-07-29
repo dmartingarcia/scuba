@@ -72,12 +72,67 @@ The codebase is organized into several key components:
 
 1. Install [PlatformIO](https://platformio.org/)
 2. Clone this repository
-3. Connect hardware according to the pinout table and ensure the voltage regulator is properly wired between the 30V supply and the 3.3V logic components
-4. Build and flash the firmware:
-    ```
+3. Copy `src/secrets.h.example` to `src/secrets.h` and fill in your real WiFi SSID/password (this file is gitignored — it never gets committed)
+4. Connect hardware according to the pinout table and ensure the voltage regulator is properly wired between the 30V supply and the 3.3V logic components
+5. Build and flash the firmware:
+    ```sh
     pio run -t upload
     ```
-5. Place the robot in the pool and power on
+6. Place the robot in the pool and power on
+
+---
+
+## Web API
+
+Served by the ESP32 on port 80 once connected to WiFi. None of these endpoints require authentication — anyone on the same network can hit them.
+
+| Endpoint          | Method | Description                                                                 |
+|-------------------|--------|-------------------------------------------------------------------------------|
+| `/`               | GET    | Serves the control UI (`src/index.html`, baked into firmware as `src/index.h`) |
+| `/status`         | GET    | JSON: current state, tilt angle, yaw, cleaned-area grid, robot x/y position    |
+| `/control?action=`| GET    | Drive the state machine: `action=start` / `stop` / `turn`                     |
+| `/logs`           | GET    | Plain-text tail of the in-memory log buffer (last ~1500 chars)                |
+
+OTA updates (`ArduinoOTA`) are also enabled with no password set — same caveat applies.
+
+### Regenerating the UI
+
+`src/index.h` (the HTML baked into firmware as a `PROGMEM` string) is generated from `src/index.html`. After editing the HTML, regenerate it manually:
+
+```sh
+python3 gen_html_header.py
+```
+
+There's no build hook wiring this in yet, so it's easy to edit `index.html` and forget to regenerate — check `src/index.h` changed before flashing.
+
+### Local UI development
+
+`flask_mock_server.py` serves `src/index.html` against fake `/status`, `/control`, `/logs` responses, so UI work can happen on a laptop without flashing the robot:
+
+```sh
+pip install -r requirements.txt
+python3 flask_mock_server.py
+```
+
+---
+
+## Testing
+
+Pure logic (no hardware, no WiFi) is extracted into header-only modules — `src/speed_utils.h`, `src/turn_math.h`, `src/position_math.h` — and covered by native Unity tests that run on your machine, not the ESP32:
+
+```sh
+pio test -e native
+```
+
+This is the only test coverage that exists today. The state machine, sensor reads, and web server in `main.cpp` are still untested — they're tightly coupled to Arduino/WiFi globals. New pure logic extracted from `main.cpp` should get a native test alongside it rather than being tested by hand on hardware.
+
+---
+
+## Security notes
+
+- **WiFi credentials**: kept in `src/secrets.h`, gitignored. If you ever find real credentials in a commit, rotate the WiFi password immediately and scrub git history (`git filter-repo` or BFG) before anyone else clones it.
+- **No auth on the web API or OTA**: anyone on the same WiFi network can start/stop/turn the robot or push new firmware. Fine for a home network you trust, not fine if the SSID is shared/public.
+- **Single hardcoded SSID**: there's no fallback AP mode — if the configured network is unreachable, the robot has no way to be reconfigured over WiFi.
 
 ---
 

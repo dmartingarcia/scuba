@@ -1,5 +1,6 @@
 #include "motor.h"
 #include <Arduino.h>
+#include "speed_utils.h"
 
 bool Motor::init() {
     pinMode(rpwmPin, OUTPUT);
@@ -16,12 +17,7 @@ bool Motor::init() {
 }
 
 int Motor::checkSpeed(int speed) {
-    if (speed > 255) {
-        speed = 255;
-    } else if (speed < -255) {
-        speed = -255;
-    }
-    return speed;
+    return clampSpeed(speed);
 }
 
 void Motor::setSpeed(int newSpeed) {

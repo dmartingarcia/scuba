@@ -19,7 +19,6 @@ private:
     uint8_t lpwmPin;
     uint8_t rEnablePin;
     uint8_t lEnablePin;
-    uint8_t pwmPin;
     int checkSpeed(int speed);
 };
 

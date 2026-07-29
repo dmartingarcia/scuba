@@ -8,6 +8,8 @@
 #include "motor.h"
 #include "led.h"
 #include "secrets.h"
+#include "turn_math.h"
+#include "position_math.h"
 #include "index.h" // HTML content for the web interface
 #include "log_buffer.h" // Custom log buffer class for managing logs
 #include "Adafruit_BMP280.h" // BMP280 sensor library
@@ -292,11 +294,11 @@ void updatePosition() {
 
   nextPositionUpdate += DELAY_UPDATING_POSITION;
 
-  int direction;
+  MoveDirection direction;
   if (currentState == MOVING_FORWARD) {
-    direction = 1;
+    direction = MoveDirection::Forward;
   } else if (currentState == MOVING_BACKWARD) {
-    direction = -1;
+    direction = MoveDirection::Backward;
   } else {
     return; // Not moving (turning/stopped/starting): position doesn't change
   }
@@ -304,32 +306,15 @@ void updatePosition() {
   // Mark current position as cleaned
   cleanedArea[currentY][currentX] = true;
 
-  // Update position based on orientation
-  if (yaw >= 315 || yaw < 45) { // North
-    currentY = std::max(0, std::min(GRID_SIZE - 1, currentY - direction));
-  } else if (yaw >= 45 && yaw < 135) { // East
-    currentX = std::max(0, std::min(GRID_SIZE - 1, currentX + direction));
-  } else if (yaw >= 135 && yaw < 225) { // South
-    currentY = std::max(0, std::min(GRID_SIZE - 1, currentY + direction));
-  } else { // West
-    currentX = std::max(0, std::min(GRID_SIZE - 1, currentX - direction));
-  }
+  GridPos updated = updateGridPosition({currentX, currentY}, yaw, direction, GRID_SIZE);
+  currentX = updated.x;
+  currentY = updated.y;
 }
 
 void turnToDirection(int targetDegrees) {
-    float currentYaw = yaw;
-    float minTargetYaw = currentYaw - targetDegrees;
-    float maxTargetYaw = currentYaw + targetDegrees;
+    YawRange targetRange = computeTurnRange(yaw, targetDegrees);
 
-    while(maxTargetYaw > 360) {
-      maxTargetYaw -= 360; // Normalize range
-    }
-
-    while(minTargetYaw < 0) {
-      minTargetYaw += 360; // Normalize range
-    }
-
-    logBuffer.println("Turning to target yaw: " + String(minTargetYaw) + "- " + String(maxTargetYaw) + " from current yaw: " + String(yaw));
+    logBuffer.println("Turning to target yaw: " + String(targetRange.min) + "- " + String(targetRange.max) + " from current yaw: " + String(yaw));
     motorAgua.setSpeed(AGUA_IDLE_SPEED); // Start turning
 
     while(maxTurningMillis > millis() && abs(angle()) > WALL_ANGLE_RECOVER_THRESHOLD) {
@@ -347,10 +332,10 @@ void turnToDirection(int targetDegrees) {
     motorMovimiento.setSpeed(0);
     motorAgua.setSpeed(AGUA_IDLE_SPEED); // Keep turning
 
-    while(maxTurningMillis > millis() && (std::max(minTargetYaw, maxTargetYaw) < yaw || std::min(minTargetYaw, maxTargetYaw) > yaw)) {
+    while(maxTurningMillis > millis() && isYawOutsideRange(yaw, targetRange)) {
       updateYaw(); // Update yaw angle based on gyro data
       motorAgua.setSpeed(AGUA_TURN_SPEED); // Keep turning
-      logBuffer.println("Turning... Yaw: " + String(yaw) + " Target -> min:" + String(minTargetYaw) + " - max:" + String(maxTargetYaw));
+      logBuffer.println("Turning... Yaw: " + String(yaw) + " Target -> min:" + String(targetRange.min) + " - max:" + String(targetRange.max));
       delay(500); // Small delay to prevent excessive CPU usage
       motorAgua.setSpeed(AGUA_IDLE_SPEED); // Keep turning
       delay(500); // Small delay to prevent excessive CPU usage
