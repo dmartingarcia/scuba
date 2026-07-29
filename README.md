@@ -96,10 +96,40 @@ The dual H-bridge configuration provides precise control over the two drive moto
 
 ## Future Improvements
 
+Done:
 - [x] Add remote control via WiFi
-- [ ] Implement autonomous pool mapping
 - [x] Add status LED indicators
+
+Backlog:
 - [ ] Optimize cleaning patterns based on pool shape
+
+Planned — tackled one at a time, incrementally, so we never break a working robot:
+
+### Stats & history
+- Persist (EEPROM or flash FS) run stats across reboots: number of boots, total cleaning time, last session duration.
+- Persist the `cleanedArea` coverage grid (or a compressed/rasterized version) so the "where has it been" map survives a restart, not just RAM.
+
+### Dual IMU support (MPU9250 + new LSM6DS3)
+- Auto-detect which IMU is physically wired at boot: read the I2C `WHO_AM_I` register (or just probe both known I2C addresses) and pick MPU9250 vs LSM6DS3 accordingly — no manual `#define`/rebuild needed to swap hardware.
+- Wrap sensor access behind a small interface (`readAccel()`, `readGyro()`) so `main.cpp` logic doesn't care which chip answered.
+
+### Configurable cleaning timer
+- Let the UI set how long a cleaning run should last (a max-duration timer), instead of running forever until manually stopped.
+
+### Home Assistant integration
+- Push robot state (paused / cleaning / finished) to Home Assistant so it shows up like any other HA entity — likely via HA's MQTT discovery or a simple REST sensor call from the ESP32.
+
+### Local UI development against a mock backend
+- Build out `flask_mock_server.py` (already a start) into a proper local dev loop: run the real `index.html` UI against a mock server that fakes `/status`, `/control`, `/logs` — so UI changes can be tested on a laptop without flashing the robot each time.
+
+### Manual control
+- Dedicated manual-drive mode in the UI (vs. the current start/stop/turn buttons) — direct motor control while overriding the autonomous state machine.
+
+### Fully UI-configurable settings
+- Expose the constants that currently only live as `#define`s (autostart delay, turn angle, movement timeout, speeds, etc.) as runtime settings adjustable from the web UI, not just compile-time constants. Autostart delay is the first candidate.
+
+### Wall-climbing detection (experimental)
+- Investigate whether the chassis/motors can climb the pool wall like some commercial pool robots do. Once submerged there's no WiFi to lean on, so this needs an on-device check (IMU-based) with no connectivity assumed — pure exploration, not guaranteed to work with this hardware.
 
 ---
 

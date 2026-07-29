@@ -30,7 +30,7 @@
 #define DELAY_UPDATING_POSITION 2000 // Delay for updating position in milliseconds
 #define TURN_ANGLE 15 // Degrees to turn when changing direction
 #define MOVING_TIMEOUT 100000 // Timeout for movement in milliseconds
-float aX, aY, aZ, aSqrt, gX, gY, gZ, mDirection, mX, mY, mZ, temp, pressure;
+float aX, aY, aZ, aSqrt, gX, gY, gZ, temp, pressure;
 
 // Web server
 AsyncWebServer server(80);
@@ -145,7 +145,7 @@ void updateYaw() {
 
   result = mpu.gyroUpdate();
   if (result == 0) {
-    gX = (mpu.gyroX() + gZ) / 2;
+    gX = (mpu.gyroX() + gX) / 2;
     gY = (mpu.gyroY() + gY) / 2;
     gZ = (mpu.gyroZ() + gZ) / 2;
     //logBuffer.println("gyroX: " + String(gX) + " gyroY: " + String(gY) + " gyroZ: " + String(gZ));
@@ -177,10 +177,6 @@ float angle(){
   // accel - X:-0.08 Y:-1.00 Z:-0.00 Sqrt:1.00 de canto 2
 
   return 90.0f * aZ ;
-}
-
-float direction(){
-  return 0; // Fake MPU9250 , it doesnt have magnetometer
 }
 
 long timeToConnectWifi = 0; // Time to connect to WiFi
@@ -292,15 +288,17 @@ void setup_web_server() {
 }
 
 void updatePosition() {
-  if(nextPositionUpdate < millis()) return;
+  if(nextPositionUpdate > millis()) return;
 
   nextPositionUpdate += DELAY_UPDATING_POSITION;
-  int direction = 0; // Default direction is 0 (no movement)
 
-  if(currentState == MOVING_FORWARD) {
+  int direction;
+  if (currentState == MOVING_FORWARD) {
     direction = 1;
+  } else if (currentState == MOVING_BACKWARD) {
+    direction = -1;
   } else {
-    direction = -1; // Moving backward
+    return; // Not moving (turning/stopped/starting): position doesn't change
   }
 
   // Mark current position as cleaned
@@ -308,13 +306,13 @@ void updatePosition() {
 
   // Update position based on orientation
   if (yaw >= 315 || yaw < 45) { // North
-    currentY = std::max(0, currentY - direction);
+    currentY = std::max(0, std::min(GRID_SIZE - 1, currentY - direction));
   } else if (yaw >= 45 && yaw < 135) { // East
-    currentX = std::min(GRID_SIZE - direction, currentX + direction);
+    currentX = std::max(0, std::min(GRID_SIZE - 1, currentX + direction));
   } else if (yaw >= 135 && yaw < 225) { // South
-    currentY = std::min(GRID_SIZE - direction, currentY + direction);
+    currentY = std::max(0, std::min(GRID_SIZE - 1, currentY + direction));
   } else { // West
-    currentX = std::max(0, currentX - direction);
+    currentX = std::max(0, std::min(GRID_SIZE - 1, currentX - direction));
   }
 }
 
@@ -398,7 +396,7 @@ void robotLogic() {
       currentState = MOVING_FORWARD;
     }
     timeout = millis();
-    logBuffer.println("Movement timeout reached, changing state to: " + resolveState(currentState
+    logBuffer.println("Movement timeout reached, changing state to: " + resolveState(currentState));
   }
 
   switch (currentState) {
