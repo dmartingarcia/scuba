@@ -1,8 +1,8 @@
 #include "imu_setup.h"
-#include "config.h"
-#include "logic/imu_detect.h"
-#include "hal/imu_mpu9250.h"
-#include "hal/imu_lsm6ds3.h"
+#include "../config.h"
+#include "../logic/imu_detect.h"
+#include "../hal/imu_mpu9250.h"
+#include "../hal/imu_lsm6ds3.h"
 
 ImuSensor* detectAndBeginImu(TwoWire &wire) {
   uint8_t whoAmI = 0;

@@ -1,6 +1,6 @@
 #include <ArduinoOTA.h>
 #include "ota_manager.h"
-#include "globals.h"
+#include "../globals.h"
 
 void setupOta() {
   ArduinoOTA.onStart([]() {

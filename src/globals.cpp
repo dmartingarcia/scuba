@@ -27,3 +27,9 @@ long timeToConnectWifi = 0;
 float aX, aY, aZ, aSqrt, gX, gY, gZ, temp, pressure;
 float yaw = 0;
 unsigned long lastYawUpdate = 0;
+
+unsigned long sessionDurationMs = 0; // 0 = unlimited by default
+unsigned long sessionStartMillis = 0;
+
+unsigned long statsSaveIntervalMs = 600000; // default: every 10 minutes
+MaintenanceStats maintenanceStats = {0, 0};

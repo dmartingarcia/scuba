@@ -1,5 +1,5 @@
 #include "sensors.h"
-#include "globals.h"
+#include "../globals.h"
 
 void updateSensors() {
   if ((long)millis() < nextUpdate) return;

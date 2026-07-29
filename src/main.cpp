@@ -4,13 +4,14 @@
 #include <ArduinoOTA.h>
 #include "config.h"
 #include "globals.h"
-#include "sensors.h"
-#include "robot_logic.h"
-#include "position_tracker.h"
-#include "wifi_manager.h"
-#include "ota_manager.h"
-#include "web_server.h"
-#include "imu_setup.h"
+#include "app/sensors.h"
+#include "app/robot_logic.h"
+#include "app/position_tracker.h"
+#include "app/imu_setup.h"
+#include "app/maintenance.h"
+#include "net/wifi_manager.h"
+#include "net/ota_manager.h"
+#include "net/web_server.h"
 
 void setup() {
   Serial.begin(9600); // Initialize serial communication for debugging
@@ -30,6 +31,8 @@ void setup() {
 
   imu = detectAndBeginImu(Wire); // Auto-detects MPU9250 vs LSM6DS3
   logBuffer.println("IMU detected: " + String(imu->name()));
+
+  maintenanceInit(); // Load persisted stats, record this boot
 }
 
 void loop() {
@@ -38,5 +41,6 @@ void loop() {
   robotLogic();
   updatePosition();
   updateYaw(); // Update yaw angle based on gyro data
+  maintenanceTick();
   led.handleBlink();
 }

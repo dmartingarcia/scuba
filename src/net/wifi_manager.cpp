@@ -1,8 +1,8 @@
 #include <WiFi.h>
 #include "wifi_manager.h"
-#include "globals.h"
-#include "secrets.h"
-#include "logic/wifi_timing.h"
+#include "../globals.h"
+#include "../secrets.h"
+#include "../logic/wifi_timing.h"
 
 void setupWifi() {
   if (timeToConnectWifi > (long)millis()) {

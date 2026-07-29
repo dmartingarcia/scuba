@@ -1,8 +1,9 @@
 #include <WiFi.h>
 #include "robot_logic.h"
-#include "globals.h"
+#include "../globals.h"
 #include "sensors.h"
-#include "logic/turn_math.h"
+#include "../logic/turn_math.h"
+#include "../logic/session_timer.h"
 
 static void turnToDirection(int targetDegrees) {
   YawRange targetRange = computeTurnRange(yaw, targetDegrees);
@@ -74,6 +75,11 @@ void robotLogic() {
     logBuffer.println("Movement timeout reached, changing state to: " + resolveState(currentState));
   }
 
+  if (currentState != STOPPED && isSessionTimeUp(millis(), sessionStartMillis, sessionDurationMs)) {
+    logBuffer.println("Configured session duration reached, stopping.");
+    currentState = STOPPED;
+  }
+
   switch (currentState) {
     case STARTING:
       logBuffer.println("Starting robot...");
@@ -99,6 +105,7 @@ void robotLogic() {
       delay(1000); // Allow some time to start moving
 
       currentState = MOVING_FORWARD;
+      sessionStartMillis = millis();
       logBuffer.println("Robot started and ready to move.");
       break;
 

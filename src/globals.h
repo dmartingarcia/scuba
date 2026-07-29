@@ -9,7 +9,8 @@
 #include "hal/led.h"
 #include "hal/imu.h"
 #include "log_buffer.h"
-#include "robot_state.h"
+#include "app/robot_state.h"
+#include "logic/maintenance_stats.h"
 
 // Shared robot state, defined once in globals.cpp. Every module that reads
 // or drives the robot (sensors, robot_logic, position_tracker, web_server,
@@ -42,5 +43,15 @@ extern long timeToConnectWifi;
 extern float aX, aY, aZ, aSqrt, gX, gY, gZ, temp, pressure;
 extern float yaw;
 extern unsigned long lastYawUpdate;
+
+// Configurable cleaning session: how long a run should last (0 = unlimited)
+// and when the current run started. Set via the /control web API.
+extern unsigned long sessionDurationMs;
+extern unsigned long sessionStartMillis;
+
+// How often maintenance stats get persisted to EEPROM (0 = only on session
+// end). Configurable via the /config web API.
+extern unsigned long statsSaveIntervalMs;
+extern MaintenanceStats maintenanceStats;
 
 #endif // GLOBALS_H

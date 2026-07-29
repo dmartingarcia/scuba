@@ -1,6 +1,6 @@
 #include "position_tracker.h"
-#include "globals.h"
-#include "logic/position_math.h"
+#include "../globals.h"
+#include "../logic/position_math.h"
 
 void updatePosition() {
   if (nextPositionUpdate > (long)millis()) return;

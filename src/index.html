@@ -13,7 +13,12 @@
   <p>Status: <span id="status">Stopped</span></p>
   <p>Angle: <span id="angle">0°</span></p>
   <p>Yaw: <span id="yaw">0°</span></p>
+  <p>Session: <span id="session">-</span></p>
+  <p>Maintenance: <span id="maintenance">-</span></p>
 
+  <p>
+    Run for <input type="number" id="duration" value="0" min="0" style="width:60px"> minutes (0 = unlimited)
+  </p>
   <button class="button" onclick="controlRobot('start')">Start</button>
   <button class="button" onclick="controlRobot('stop')">Stop</button>
   <button class="button" onclick="controlRobot('turn')">Turn</button>
@@ -25,9 +30,16 @@
     <pre id="logArea" style="background:#222;color:#0f0;height:200px;overflow:auto"></pre>
   </div>
   <script>
+    var GRID_SIZE = 30;
+
     function controlRobot(action) {
+      var url = "/control?action=" + action;
+      if (action === "start") {
+        var minutes = document.getElementById("duration").value || 0;
+        url += "&duration=" + minutes;
+      }
       var xhr = new XMLHttpRequest();
-      xhr.open("GET", "/control?action=" + action, true);
+      xhr.open("GET", url, true);
       xhr.send();
     }
 
@@ -39,22 +51,28 @@
           document.getElementById("status").innerHTML = data.state;
           document.getElementById("angle").innerHTML = data.angle + "°";
           document.getElementById("yaw").innerHTML = data.yaw + "°";
-          drawMap(data.map);
+          document.getElementById("session").innerHTML =
+            data.sessionDurationMinutes > 0
+              ? (data.sessionElapsedSeconds / 60).toFixed(1) + " / " + data.sessionDurationMinutes + " min"
+              : (data.sessionElapsedSeconds / 60).toFixed(1) + " min (unlimited)";
+          document.getElementById("maintenance").innerHTML =
+            data.maintenance.bootCount + " boots, " + data.maintenance.totalRuntimeHours.toFixed(1) + "h total runtime";
+          drawMap(data.map, data.x, data.y);
         }
       };
       xhr.open("GET", "/status", true);
       xhr.send();
     }, 1000);
 
-    function drawMap(mapData) {
+    function drawMap(mapData, robotX, robotY) {
       var canvas = document.getElementById("cleaningMap");
       var ctx = canvas.getContext("2d");
-      var cellSize = canvas.width / 20;
+      var cellSize = canvas.width / GRID_SIZE;
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      for (var y = 0; y < 20; y++) {
-        for (var x = 0; x < 20; x++) {
+      for (var y = 0; y < GRID_SIZE; y++) {
+        for (var x = 0; x < GRID_SIZE; x++) {
           if (mapData[y][x]) {
             ctx.fillStyle = "green";
             ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
@@ -64,7 +82,7 @@
 
       // Draw robot position
       ctx.fillStyle = "red";
-      ctx.fillRect(mapData.x * cellSize, mapData.y * cellSize, cellSize, cellSize);
+      ctx.fillRect(robotX * cellSize, robotY * cellSize, cellSize, cellSize);
     }
 
     function updateLogs() {
