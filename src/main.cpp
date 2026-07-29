@@ -1,6 +1,5 @@
 #include <Arduino.h>
 #include <Wire.h>
-#include <EEPROM.h>
 #include <ArduinoOTA.h>
 #include "config.h"
 #include "globals.h"
@@ -9,12 +8,14 @@
 #include "app/position_tracker.h"
 #include "app/imu_setup.h"
 #include "app/maintenance.h"
+#include "app/error_reporter.h"
 #include "net/wifi_manager.h"
 #include "net/ota_manager.h"
 #include "net/web_server.h"
 
 void setup() {
   Serial.begin(9600); // Initialize serial communication for debugging
+  errorReporterInit(); // Mount LittleFS, load persisted fault log
   setupWifi(); // Connect to WiFi
   setupOta(); // Setup OTA updates
   setupWebServer(); // Setup web server
@@ -25,8 +26,11 @@ void setup() {
 
   Wire.begin(SDA_PIN, SCL_PIN);
 
-  if (!bmp.begin(0x76)) {
+  if (bmp.begin(0x76)) {
+    clearErrorCode(ErrorCode::BmpInitFailed);
+  } else {
     logBuffer.println("Could not find a valid BMP280 sensor, check wiring!");
+    logError(ErrorCode::BmpInitFailed);
   }
 
   imu = detectAndBeginImu(Wire); // Auto-detects MPU9250 vs LSM6DS3

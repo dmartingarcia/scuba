@@ -3,6 +3,7 @@
 #include "../globals.h"
 #include "../secrets.h"
 #include "../logic/wifi_timing.h"
+#include "../app/error_reporter.h"
 
 void setupWifi() {
   if (timeToConnectWifi > (long)millis()) {
@@ -19,6 +20,7 @@ void setupWifi() {
     retries--;
     if (retries <= 0) {
       logBuffer.println("Failed to connect to WiFi. Please check your credentials.");
+      logError(ErrorCode::WifiConnectFailed);
       return;
     }
     timeToConnectWifi = millis() + 60000; // 60 seconds to connect
@@ -28,10 +30,14 @@ void setupWifi() {
   logBuffer.println("WiFi connected");
   logBuffer.println("IP address: ");
   logBuffer.println(WiFi.localIP().toString());
+  clearErrorCode(ErrorCode::WifiConnectFailed);
 }
 
 void maintainWifi() {
-  if (WiFi.status() == WL_CONNECTED) return;
+  if (WiFi.status() == WL_CONNECTED) {
+    clearErrorCode(ErrorCode::WifiConnectFailed);
+    return;
+  }
   if (!isReconnectDue(millis(), timeToConnectWifi)) return;
 
   logBuffer.println("WiFi disconnected, attempting reconnect...");

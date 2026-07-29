@@ -33,3 +33,5 @@ unsigned long sessionStartMillis = 0;
 
 unsigned long statsSaveIntervalMs = 600000; // default: every 10 minutes
 MaintenanceStats maintenanceStats = {0, 0};
+
+ErrorLog errorLog = {};

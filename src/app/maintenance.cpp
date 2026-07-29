@@ -1,21 +1,38 @@
-#include <EEPROM.h>
+#include <LittleFS.h>
+#include <ArduinoJson.h>
 #include "maintenance.h"
 #include "../globals.h"
+#include "../config.h"
 #include "../logic/maintenance_stats.h"
-
-#define EEPROM_SIZE 16
-#define EEPROM_MAGIC 0xA5C3EEDA
-#define EEPROM_ADDR_MAGIC 0
-#define EEPROM_ADDR_STATS 4
 
 static unsigned long lastTickMillis = 0;
 static unsigned long nextStatsCommit = 0;
 static bool wasActive = false;
 
+static void loadStats() {
+  File f = LittleFS.open(MAINTENANCE_STATS_PATH, "r");
+  if (!f) {
+    maintenanceStats = {0, 0};
+    return;
+  }
+
+  JsonDocument doc;
+  deserializeJson(doc, f);
+  f.close();
+
+  maintenanceStats.bootCount = doc["bootCount"] | 0;
+  maintenanceStats.totalRuntimeSeconds = doc["totalRuntimeSeconds"] | 0;
+}
+
 static void persistStats() {
-  EEPROM.put(EEPROM_ADDR_MAGIC, (uint32_t)EEPROM_MAGIC);
-  EEPROM.put(EEPROM_ADDR_STATS, maintenanceStats);
-  EEPROM.commit();
+  File f = LittleFS.open(MAINTENANCE_STATS_PATH, "w");
+  if (!f) return;
+
+  JsonDocument doc;
+  doc["bootCount"] = maintenanceStats.bootCount;
+  doc["totalRuntimeSeconds"] = maintenanceStats.totalRuntimeSeconds;
+  serializeJson(doc, f);
+  f.close();
 }
 
 static bool isActiveState() {
@@ -23,16 +40,9 @@ static bool isActiveState() {
 }
 
 void maintenanceInit() {
-  EEPROM.begin(EEPROM_SIZE);
+  LittleFS.begin(true); // format on first boot / corrupt filesystem
 
-  uint32_t magic = 0;
-  EEPROM.get(EEPROM_ADDR_MAGIC, magic);
-  if (magic == EEPROM_MAGIC) {
-    EEPROM.get(EEPROM_ADDR_STATS, maintenanceStats);
-  } else {
-    maintenanceStats = {0, 0};
-  }
-
+  loadStats();
   maintenanceStats = recordBoot(maintenanceStats);
   persistStats();
 

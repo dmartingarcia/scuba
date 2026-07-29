@@ -10,6 +10,11 @@ public:
     virtual bool readAccel(float &x, float &y, float &z, float &sqrtMag) = 0;
     virtual bool readGyro(float &x, float &y, float &z) = 0;
     virtual const char* name() const = 0;
+
+    // Whether this chip's gyro readings are trustworthy enough to steer a
+    // precise turn by. Some MPU9250 units in the wild have unreliable gyro
+    // output - robot_logic falls back to a fixed-duration turn when false.
+    virtual bool hasReliableGyro() const = 0;
 };
 
 #endif // IMU_H

@@ -30,6 +30,8 @@ public:
 
     const char* name() const override { return "LSM6DS3"; }
 
+    bool hasReliableGyro() const override { return true; }
+
 private:
     LSM6DS3 imu;
 };

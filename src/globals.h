@@ -11,6 +11,7 @@
 #include "log_buffer.h"
 #include "app/robot_state.h"
 #include "logic/maintenance_stats.h"
+#include "logic/error_log.h"
 
 // Shared robot state, defined once in globals.cpp. Every module that reads
 // or drives the robot (sensors, robot_logic, position_tracker, web_server,
@@ -53,5 +54,8 @@ extern unsigned long sessionStartMillis;
 // end). Configurable via the /config web API.
 extern unsigned long statsSaveIntervalMs;
 extern MaintenanceStats maintenanceStats;
+
+// ECU-style fault log: persisted, deduped while a fault stays active.
+extern ErrorLog errorLog;
 
 #endif // GLOBALS_H

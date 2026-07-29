@@ -35,6 +35,9 @@ public:
 
     const char* name() const override { return "MPU9250"; }
 
+    // False: gyro output on this chip has been unreliable in practice.
+    bool hasReliableGyro() const override { return false; }
+
 private:
     MPU9250_asukiaaa mpu;
 };

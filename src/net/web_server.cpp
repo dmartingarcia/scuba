@@ -2,6 +2,7 @@
 #include "web_server.h"
 #include "../globals.h"
 #include "../app/sensors.h"
+#include "../app/error_reporter.h"
 #include "../index.h" // HTML content for the web interface
 
 void setupWebServer() {
@@ -77,6 +78,29 @@ void setupWebServer() {
       for (int x = 0; x < GRID_SIZE; x++) {
         row.add(cleanedArea[y][x]);
       }
+    }
+
+    String response;
+    serializeJson(doc, response);
+    request->send(200, "application/json", response);
+  });
+
+  // Fault log endpoint (ECU-style): GET for the log, ?action=clear to wipe it
+  server.on("/errors", HTTP_GET, [](AsyncWebServerRequest *request) {
+    if (request->hasParam("action") && request->getParam("action")->value() == "clear") {
+      clearAllErrors();
+      request->send(200, "text/plain", "OK");
+      return;
+    }
+
+    JsonDocument doc;
+    JsonArray entries = doc["entries"].to<JsonArray>();
+    for (int i = 0; i < errorLog.count; i++) {
+      JsonObject e = entries.add<JsonObject>();
+      e["code"] = errorLog.entries[i].code;
+      e["name"] = errorCodeName(errorLog.entries[i].code);
+      e["timestamp"] = errorLog.entries[i].timestamp;
+      e["active"] = isErrorActive(errorLog, errorLog.entries[i].code);
     }
 
     String response;

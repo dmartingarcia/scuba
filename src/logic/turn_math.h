@@ -25,4 +25,10 @@ inline bool isYawOutsideRange(float yaw, const YawRange& range) {
     return yaw < lo || yaw > hi;
 }
 
+// Fallback for IMUs whose gyro can't be trusted (see hasReliableGyro() on
+// ImuSensor): just spin for a fixed duration instead of tracking yaw.
+inline bool isTimeElapsed(unsigned long now, unsigned long startMillis, unsigned long durationMs) {
+    return (now - startMillis) >= durationMs;
+}
+
 #endif // TURN_MATH_H

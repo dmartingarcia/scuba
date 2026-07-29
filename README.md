@@ -98,7 +98,18 @@ OTA updates (`ArduinoOTA`) are also enabled with no password set — same caveat
 
 ### Maintenance stats
 
-Boot count and total active-cleaning hours are persisted to EEPROM (`src/app/maintenance.cpp`) across reboots, for wear/maintenance tracking. They're saved on `statsSaveInterval` (default 10 minutes) and always right when a cleaning session ends, so a power loss mid-run only risks losing the last few seconds. Read them from `/status` → `maintenance.bootCount` / `maintenance.totalRuntimeHours`.
+Boot count and total active-cleaning hours are persisted to LittleFS (`src/app/maintenance.cpp`, `/maintenance.json`) across reboots, for wear/maintenance tracking. They're saved on `statsSaveInterval` (default 10 minutes) and always right when a cleaning session ends, so a power loss mid-run only risks losing the last few seconds. Read them from `/status` → `maintenance.bootCount` / `maintenance.totalRuntimeHours`.
+
+### Fault log
+
+`src/app/error_reporter.cpp` keeps an ECU-style fault log, persisted to LittleFS (`/errors.json`): each fault code logs once when it first occurs and stays "active" (no duplicate entries) until the condition clears - e.g. a failed sensor read only logs once per failure streak, not every loop iteration. Current codes: `ImuInitFailed`, `ImuReadFailed`, `BmpInitFailed`, `TurnTimeout`, `WifiConnectFailed`.
+
+- `GET /errors` - JSON list of logged faults (code, name, timestamp, whether still active)
+- `GET /errors?action=clear` - wipes the log, like clearing codes on a scan tool
+
+### Gyro-dependent turning (dual IMU)
+
+Some MPU9250 units have unreliable gyro output in practice. `ImuSensor::hasReliableGyro()` lets `robot_logic.cpp` pick the turn strategy per detected chip: LSM6DS3 gets a precise gyro-tracked turn (`turnByGyro`), MPU9250 falls back to a fixed-duration spin (`turnByDuration`, `TURN_DURATION_MS` in `config.h` - a rough default, tune on real hardware). A turn that runs out the safety timeout without completing logs `TurnTimeout`.
 
 ### Regenerating the UI
 
@@ -175,8 +186,10 @@ Done:
 - [x] Add status LED indicators
 - [x] Dual IMU support (MPU9250 + LSM6DS3), auto-detected via I2C `WHO_AM_I` at boot — see `src/app/imu_setup.cpp` + `src/logic/imu_detect.h`
 - [x] Configurable cleaning timer — `/control?action=start&duration=<minutes>`, enforced in `robot_logic.cpp`
-- [x] Maintenance stats (boot count, total cleaning hours) persisted to EEPROM — `src/app/maintenance.cpp`
+- [x] Maintenance stats (boot count, total cleaning hours) persisted to LittleFS — `src/app/maintenance.cpp`
 - [x] Native unit test harness + CI (`.github/workflows/ci.yml`)
+- [x] ECU-style fault log (`/errors`), persisted, deduped while a fault stays active — `src/app/error_reporter.cpp`
+- [x] Per-IMU turn strategy: gyro-precise on LSM6DS3, fixed-duration fallback on MPU9250 (unreliable gyro on that hardware) — `ImuSensor::hasReliableGyro()`
 
 Backlog:
 - [ ] Optimize cleaning patterns based on pool shape

@@ -20,10 +20,18 @@
 #define TURN_ANGLE 15 // Degrees to turn when changing direction
 #define MOVING_TIMEOUT 100000 // Timeout for movement in milliseconds
 
+// Fallback turn duration when the IMU's gyro isn't trustworthy (see
+// ImuSensor::hasReliableGyro()) - rough default, tune on real hardware.
+#define TURN_DURATION_MS 3000
+
 #define GRID_SIZE 30 // Cleaning-progress tracking grid, 30x30 cells
 
 #define LSM6DS3_WHO_AM_I_ADDR 0x6A
 #define LSM6DS3_WHO_AM_I_REG 0x0F
+
+// Persisted across reboots on LittleFS (wear-leveled flash filesystem).
+#define MAINTENANCE_STATS_PATH "/maintenance.json"
+#define ERROR_LOG_PATH "/errors.json"
 
 // Movement parameters
 const float WALL_ANGLE_THRESHOLD = 45.0; // Degrees for wall detection

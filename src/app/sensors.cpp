@@ -1,5 +1,6 @@
 #include "sensors.h"
 #include "../globals.h"
+#include "error_reporter.h"
 
 void updateSensors() {
   if ((long)millis() < nextUpdate) return;
@@ -13,8 +14,11 @@ void updateSensors() {
   temp = bmp.readTemperature();
   pressure = bmp.readPressure();
 
-  if (!imu->readAccel(aX, aY, aZ, aSqrt)) {
+  if (imu->readAccel(aX, aY, aZ, aSqrt)) {
+    clearErrorCode(ErrorCode::ImuReadFailed);
+  } else {
     logBuffer.println("Cannot read accel values");
+    logError(ErrorCode::ImuReadFailed);
   }
 }
 
@@ -25,6 +29,7 @@ void updateYaw() {
 
   if (!imu->readGyro(gX, gY, gZ)) {
     logBuffer.println("Cannot read gyro values");
+    logError(ErrorCode::ImuReadFailed);
     return; // No gyro data, cannot update yaw
   }
 
@@ -33,8 +38,10 @@ void updateYaw() {
     gX = (gX2 + gX) / 2;
     gY = (gY2 + gY) / 2;
     gZ = (gZ2 + gZ) / 2;
+    clearErrorCode(ErrorCode::ImuReadFailed);
   } else {
     logBuffer.println("Cannot read gyro values");
+    logError(ErrorCode::ImuReadFailed);
     return; // No gyro data, cannot update yaw
   }
 

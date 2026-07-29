@@ -3,6 +3,7 @@
 #include "../logic/imu_detect.h"
 #include "../hal/imu_mpu9250.h"
 #include "../hal/imu_lsm6ds3.h"
+#include "error_reporter.h"
 
 ImuSensor* detectAndBeginImu(TwoWire &wire) {
   uint8_t whoAmI = 0;
@@ -21,6 +22,10 @@ ImuSensor* detectAndBeginImu(TwoWire &wire) {
     detected = new Mpu9250Imu(&wire);
   }
 
-  detected->begin();
+  if (detected->begin()) {
+    clearErrorCode(ErrorCode::ImuInitFailed);
+  } else {
+    logError(ErrorCode::ImuInitFailed);
+  }
   return detected;
 }

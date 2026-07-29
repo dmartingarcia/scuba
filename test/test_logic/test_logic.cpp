@@ -65,6 +65,14 @@ void test_isYawOutsideRange_above(void) {
     TEST_ASSERT_TRUE(isYawOutsideRange(45.0f, range));
 }
 
+void test_isTimeElapsed_false_before_duration(void) {
+    TEST_ASSERT_FALSE(isTimeElapsed(2000, 1000, 5000));
+}
+
+void test_isTimeElapsed_true_at_duration(void) {
+    TEST_ASSERT_TRUE(isTimeElapsed(6000, 1000, 5000));
+}
+
 // --- position_math ---
 
 void test_updateGridPosition_none_direction_unchanged(void) {
@@ -128,6 +136,8 @@ int main(int argc, char **argv) {
     RUN_TEST(test_isYawOutsideRange_inside);
     RUN_TEST(test_isYawOutsideRange_below);
     RUN_TEST(test_isYawOutsideRange_above);
+    RUN_TEST(test_isTimeElapsed_false_before_duration);
+    RUN_TEST(test_isTimeElapsed_true_at_duration);
 
     RUN_TEST(test_updateGridPosition_none_direction_unchanged);
     RUN_TEST(test_updateGridPosition_forward_north);

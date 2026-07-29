@@ -2,15 +2,11 @@
 #include "robot_logic.h"
 #include "../globals.h"
 #include "sensors.h"
+#include "error_reporter.h"
 #include "../logic/turn_math.h"
 #include "../logic/session_timer.h"
 
-static void turnToDirection(int targetDegrees) {
-  YawRange targetRange = computeTurnRange(yaw, targetDegrees);
-
-  logBuffer.println("Turning to target yaw: " + String(targetRange.min) + "- " + String(targetRange.max) + " from current yaw: " + String(yaw));
-  motorAgua.setSpeed(AGUA_IDLE_SPEED); // Start turning
-
+static void recoverFromWall() {
   while (maxTurningMillis > (long)millis() && abs(angle()) > WALL_ANGLE_RECOVER_THRESHOLD) {
     if (previousState == MOVING_FORWARD) {
       motorMovimiento.setSpeed(-MOVIMIENTO_IDLE_SPEED);
@@ -21,10 +17,13 @@ static void turnToDirection(int targetDegrees) {
     delay(100); // Small delay to prevent excessive CPU usage
     logBuffer.println("Coming back to angle: " + String(angle()));
   }
-
-  // Stop movement motor while turning
   motorMovimiento.setSpeed(0);
-  motorAgua.setSpeed(AGUA_IDLE_SPEED); // Keep turning
+}
+
+// Precise turn: track yaw via the gyro until it leaves the target window.
+static bool turnByGyro(int targetDegrees) {
+  YawRange targetRange = computeTurnRange(yaw, targetDegrees);
+  logBuffer.println("Turning (gyro) to target yaw: " + String(targetRange.min) + "- " + String(targetRange.max) + " from current yaw: " + String(yaw));
 
   while (maxTurningMillis > (long)millis() && isYawOutsideRange(yaw, targetRange)) {
     updateYaw(); // Update yaw angle based on gyro data
@@ -35,7 +34,39 @@ static void turnToDirection(int targetDegrees) {
     delay(500); // Small delay to prevent excessive CPU usage
   }
 
+  return !isYawOutsideRange(yaw, targetRange); // true = reached target, false = timed out
+}
+
+// Fallback for IMUs whose gyro isn't trustworthy (MPU9250, see
+// ImuSensor::hasReliableGyro()): just spin for a fixed duration.
+static bool turnByDuration() {
+  logBuffer.println("Turning (fixed duration - gyro not reliable on this IMU)");
+  unsigned long turnStart = millis();
+
+  while (maxTurningMillis > (long)millis() && !isTimeElapsed(millis(), turnStart, TURN_DURATION_MS)) {
+    motorAgua.setSpeed(AGUA_TURN_SPEED); // Keep turning
+    delay(500); // Small delay to prevent excessive CPU usage
+    motorAgua.setSpeed(AGUA_IDLE_SPEED); // Keep turning
+    delay(500); // Small delay to prevent excessive CPU usage
+  }
+
+  return isTimeElapsed(millis(), turnStart, TURN_DURATION_MS); // true = completed, false = timed out
+}
+
+static void turnToDirection(int targetDegrees) {
+  motorAgua.setSpeed(AGUA_IDLE_SPEED); // Start turning
+  recoverFromWall();
+  motorAgua.setSpeed(AGUA_IDLE_SPEED); // Keep turning
+
+  bool completed = imu->hasReliableGyro() ? turnByGyro(targetDegrees) : turnByDuration();
+
   motorAgua.setSpeed(AGUA_IDLE_SPEED); // Stop water motor
+
+  if (completed) {
+    clearErrorCode(ErrorCode::TurnTimeout);
+  } else {
+    logError(ErrorCode::TurnTimeout);
+  }
 
   if (previousState == MOVING_FORWARD) {
     currentState = MOVING_BACKWARD; // Change state to moving backward after turning
