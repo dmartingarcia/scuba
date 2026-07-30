@@ -14,6 +14,7 @@ mock_stats_save_interval_minutes = 10
 mock_maintenance = {"bootCount": 3, "totalRuntimeHours": 12.5}
 mock_accel_calibration = {"calibrated": False, "zOffset": 0.0}
 mock_errors = []
+mock_mqtt = {"enabled": False, "host": "", "port": 1883, "user": "", "password": "", "topicPrefix": "scuba"}
 mock_logs = "Log de ejemplo\nRobot iniciado\nMovimiento adelante\n..."
 
 
@@ -89,6 +90,36 @@ def calibrate():
         mock_accel_calibration["calibrated"] = True
         mock_accel_calibration["zOffset"] = -0.02
     return jsonify(mock_accel_calibration)
+
+
+@app.route("/mqtt")
+def mqtt():
+    if request.args.get("action") == "reset":
+        mock_mqtt.update({"enabled": False, "host": "", "port": 1883, "user": "", "password": "", "topicPrefix": "scuba"})
+    else:
+        if "enabled" in request.args:
+            mock_mqtt["enabled"] = request.args["enabled"] == "1"
+        if "host" in request.args:
+            mock_mqtt["host"] = request.args["host"]
+        if "port" in request.args:
+            mock_mqtt["port"] = int(request.args["port"])
+        if "user" in request.args:
+            mock_mqtt["user"] = request.args["user"]
+        if "password" in request.args:
+            mock_mqtt["password"] = request.args["password"]
+        if "topicPrefix" in request.args:
+            mock_mqtt["topicPrefix"] = request.args["topicPrefix"]
+
+    return jsonify(
+        {
+            "enabled": mock_mqtt["enabled"],
+            "host": mock_mqtt["host"],
+            "port": mock_mqtt["port"],
+            "user": mock_mqtt["user"],
+            "topicPrefix": mock_mqtt["topicPrefix"],
+            "hasPassword": len(mock_mqtt["password"]) > 0,
+        }
+    )
 
 
 @app.route("/logs")

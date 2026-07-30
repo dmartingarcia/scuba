@@ -168,6 +168,20 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
       margin: 0;
     }
 
+    .section-title {
+      max-width: 1000px;
+      margin: 24px auto 10px;
+      padding-left: 2px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      border-bottom: 1px solid var(--panel-border);
+      padding-bottom: 6px;
+    }
+    .section-title:first-of-type { margin-top: 0; }
+
     .errors-list { max-height: 160px; overflow: auto; }
     .error-row { display: flex; justify-content: space-between; font-size: 0.85rem; padding: 4px 0; border-bottom: 1px solid var(--panel-border); }
     .error-row:last-child { border-bottom: none; }
@@ -177,6 +191,7 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
 <body>
   <h1>🐬 Scuba Control</h1>
 
+  <div class="section-title">Overview</div>
   <div class="grid">
 
     <div class="card">
@@ -201,6 +216,11 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
       </div>
       <div class="row" style="margin-top:10px"><span class="label">Session</span><span class="value" id="session">-</span></div>
     </div>
+
+  </div>
+
+  <div class="section-title">Attitude</div>
+  <div class="grid">
 
     <div class="card">
       <h2>Attitude</h2>
@@ -234,8 +254,13 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
       <div class="row"><span class="label">Yaw</span><span class="value" id="headingYaw">-</span></div>
     </div>
 
+  </div>
+
+  <div class="section-title">Settings</div>
+  <div class="grid">
+
     <div class="card">
-      <h2>Settings</h2>
+      <h2>Robot</h2>
       <div class="field">
         <label for="turnStrategy">Turn strategy</label>
         <select id="turnStrategy">
@@ -250,6 +275,42 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
       </div>
       <button onclick="saveConfig()">Save settings</button>
     </div>
+
+    <div class="card">
+      <h2>MQTT / Home Assistant</h2>
+      <div class="field">
+        <label><input type="checkbox" id="mqttEnabled" style="width:auto"> Enabled</label>
+      </div>
+      <div class="field">
+        <label for="mqttHost">Broker host</label>
+        <input type="text" id="mqttHost" placeholder="192.168.1.10">
+      </div>
+      <div class="field">
+        <label for="mqttPort">Broker port</label>
+        <input type="number" id="mqttPort" value="1883">
+      </div>
+      <div class="field">
+        <label for="mqttUser">User (optional)</label>
+        <input type="text" id="mqttUser">
+      </div>
+      <div class="field">
+        <label for="mqttPassword">Password (optional, leave blank to keep current)</label>
+        <input type="password" id="mqttPassword">
+      </div>
+      <div class="field">
+        <label for="mqttTopicPrefix">Topic prefix</label>
+        <input type="text" id="mqttTopicPrefix" placeholder="scuba">
+      </div>
+      <div class="btn-row">
+        <button onclick="saveMqtt()">Save</button>
+        <button class="danger" onclick="resetMqtt()">Reset</button>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="section-title">Diagnostics</div>
+  <div class="grid">
 
     <div class="card">
       <h2>Maintenance</h2>
@@ -278,7 +339,8 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
 
   </div>
 
-  <div class="grid" style="margin-top:12px">
+  <div class="section-title">Map &amp; Logs</div>
+  <div class="grid">
     <div class="card">
       <h2>Cleaning progress</h2>
       <canvas id="cleaningMap" width="300" height="300"></canvas>
@@ -322,6 +384,35 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
 
     function clearErrors() {
       fetch("/errors?action=clear").then(refreshErrors);
+    }
+
+    function saveMqtt() {
+      var params = new URLSearchParams({
+        enabled: document.getElementById("mqttEnabled").checked ? "1" : "0",
+        host: document.getElementById("mqttHost").value,
+        port: document.getElementById("mqttPort").value || 1883,
+        user: document.getElementById("mqttUser").value,
+        topicPrefix: document.getElementById("mqttTopicPrefix").value || "scuba"
+      });
+      var password = document.getElementById("mqttPassword").value;
+      if (password) params.set("password", password);
+      get("/mqtt?" + params.toString()).then(refreshMqtt);
+    }
+
+    function resetMqtt() {
+      get("/mqtt?action=reset").then(refreshMqtt);
+    }
+
+    function refreshMqtt() {
+      get("/mqtt").then(function(data) {
+        document.getElementById("mqttEnabled").checked = data.enabled;
+        document.getElementById("mqttHost").value = data.host;
+        document.getElementById("mqttPort").value = data.port;
+        document.getElementById("mqttUser").value = data.user;
+        document.getElementById("mqttTopicPrefix").value = data.topicPrefix;
+        document.getElementById("mqttPassword").value = "";
+        document.getElementById("mqttPassword").placeholder = data.hasPassword ? "(set - leave blank to keep)" : "";
+      });
     }
 
     function refreshStatus() {
@@ -416,6 +507,7 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
     refreshStatus();
     refreshConfig();
     refreshErrors();
+    refreshMqtt();
     updateLogs();
   </script>
 </body>
