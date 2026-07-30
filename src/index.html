@@ -104,6 +104,36 @@
     .field { margin-bottom: 10px; }
     .field input, .field select { width: 100%; }
 
+    /* 3D robot body (Dolphin Sprite-shaped: wide, flat) built from 6 CSS
+       faces - no WebGL/3D library needed, just perspective + preserve-3d. */
+    .scene3d {
+      width: 180px;
+      height: 180px;
+      margin: 0 auto;
+      perspective: 500px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .robot3d {
+      position: relative;
+      width: 130px;
+      height: 36px;
+      transform-style: preserve-3d;
+      transition: transform 0.15s ease-out;
+    }
+    .robot3d .face {
+      position: absolute;
+      border: 1px solid rgba(0, 0, 0, 0.35);
+      border-radius: 4px;
+    }
+    .robot3d .front  { width: 130px; height: 36px; left: 0; top: 0; background: #e5533d; transform: translateZ(40px); }
+    .robot3d .back   { width: 130px; height: 36px; left: 0; top: 0; background: #123246; transform: rotateY(180deg) translateZ(40px); }
+    .robot3d .left   { width: 80px; height: 36px; left: 25px; top: 0; background: #16456a; transform: rotateY(-90deg) translateZ(65px); }
+    .robot3d .right  { width: 80px; height: 36px; left: 25px; top: 0; background: #16456a; transform: rotateY(90deg) translateZ(65px); }
+    .robot3d .top    { width: 130px; height: 80px; left: 0; top: -22px; background: #2b6ea8; transform: rotateX(90deg) translateZ(18px); }
+    .robot3d .bottom { width: 130px; height: 80px; left: 0; top: -22px; background: #0a1e2e; transform: rotateX(90deg) translateZ(-18px); }
+
     #cleaningMap {
       border: 1px solid var(--panel-border);
       border-radius: 6px;
@@ -161,21 +191,18 @@
 
     <div class="card">
       <h2>Attitude</h2>
-      <svg viewBox="0 0 200 200" width="180" height="180" style="display:block;margin:0 auto;">
-        <defs>
-          <clipPath id="horizonClip"><circle cx="100" cy="100" r="94"/></clipPath>
-        </defs>
-        <g clip-path="url(#horizonClip)">
-          <g id="horizonGroup">
-            <rect x="-300" y="-300" width="600" height="300" fill="#1f6feb" opacity="0.35"/>
-            <rect x="-300" y="0" width="600" height="300" fill="#3fb950" opacity="0.25"/>
-            <line x1="-300" y1="0" x2="300" y2="0" stroke="#e6edf3" stroke-width="2"/>
-          </g>
-        </g>
-        <polygon points="100,84 91,106 109,106" fill="#f85149"/>
-        <circle cx="100" cy="100" r="94" fill="none" stroke="var(--panel-border)" stroke-width="3"/>
-      </svg>
-      <div class="row"><span class="label">Tilt</span><span class="value" id="attitudeAngle">-</span></div>
+      <div class="scene3d">
+        <div class="robot3d" id="robot3d">
+          <div class="face top"></div>
+          <div class="face bottom"></div>
+          <div class="face front"></div>
+          <div class="face back"></div>
+          <div class="face left"></div>
+          <div class="face right"></div>
+        </div>
+      </div>
+      <div class="row"><span class="label">Pitch</span><span class="value" id="pitchVal">-</span></div>
+      <div class="row"><span class="label">Roll</span><span class="value" id="rollVal">-</span></div>
     </div>
 
     <div class="card">
@@ -290,10 +317,10 @@
         document.getElementById("angle").innerHTML = data.angle.toFixed(1) + "°";
         document.getElementById("yaw").innerHTML = data.yaw.toFixed(1) + "°";
 
-        document.getElementById("attitudeAngle").innerHTML = data.angle.toFixed(1) + "°";
-        document.getElementById("horizonGroup").setAttribute(
-          "transform", "rotate(" + (-data.angle) + " 100 100)"
-        );
+        document.getElementById("pitchVal").innerHTML = data.pitchDeg.toFixed(1) + "°";
+        document.getElementById("rollVal").innerHTML = data.rollDeg.toFixed(1) + "°";
+        document.getElementById("robot3d").style.transform =
+          "rotateX(" + (-data.pitchDeg) + "deg) rotateY(" + data.rollDeg + "deg)";
 
         document.getElementById("headingYaw").innerHTML = data.yaw.toFixed(1) + "°";
         document.getElementById("headingArrow").setAttribute(

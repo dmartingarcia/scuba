@@ -63,5 +63,14 @@ float angle() {
   // accel - X: 0.98 Y:-0.11 Z:-0.09 Sqrt:0.99  boca arriba
   // accel - X: 0.04 Y: 1.01 Z:-0.09 Sqrt:1.01 de canto 1
   // accel - X:-0.08 Y:-1.00 Z:-0.00 Sqrt:1.00 de canto 2
-  return 90.0f * applyAccelCalibration(aZ, accelCalibration);
+  return 90.0f * calibratedZ(aZ, accelCalibration);
+}
+
+Attitude currentAttitude() {
+  updateSensors();
+  return computeAttitude(
+    calibratedX(aX, accelCalibration),
+    calibratedY(aY, accelCalibration),
+    calibratedZ(aZ, accelCalibration)
+  );
 }

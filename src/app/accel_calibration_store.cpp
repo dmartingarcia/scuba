@@ -9,6 +9,8 @@ static void persist() {
   if (!f) return;
 
   JsonDocument doc;
+  doc["xOffset"] = accelCalibration.xOffset;
+  doc["yOffset"] = accelCalibration.yOffset;
   doc["zOffset"] = accelCalibration.zOffset;
   doc["calibrated"] = accelCalibration.calibrated;
   serializeJson(doc, f);
@@ -28,18 +30,22 @@ void accelCalibrationInit() {
   deserializeJson(doc, f);
   f.close();
 
+  accelCalibration.xOffset = doc["xOffset"] | 0.0f;
+  accelCalibration.yOffset = doc["yOffset"] | 0.0f;
   accelCalibration.zOffset = doc["zOffset"] | 0.0f;
   accelCalibration.calibrated = doc["calibrated"] | false;
 }
 
 void calibrateAccelZeroNow() {
-  float sum = 0;
+  float sumX = 0, sumY = 0, sumZ = 0;
   int samples = 0;
 
   for (int i = 0; i < ACCEL_CALIBRATION_SAMPLES; i++) {
     float x, y, z, sqrtMag;
     if (imu->readAccel(x, y, z, sqrtMag)) {
-      sum += z;
+      sumX += x;
+      sumY += y;
+      sumZ += z;
       samples++;
     }
     delay(50);
@@ -50,9 +56,11 @@ void calibrateAccelZeroNow() {
     return;
   }
 
-  accelCalibration = calibrateAccelZero(sum / samples);
+  accelCalibration = calibrateAccel(sumX / samples, sumY / samples, sumZ / samples);
   persist();
-  logBuffer.println("Accel calibrated: zOffset=" + String(accelCalibration.zOffset));
+  logBuffer.println("Accel calibrated: x=" + String(accelCalibration.xOffset) +
+                     " y=" + String(accelCalibration.yOffset) +
+                     " z=" + String(accelCalibration.zOffset));
 }
 
 void clearAccelCalibration() {

@@ -37,6 +37,10 @@ def status():
             "imuHasMagnetometer": False,
             "accelCalibrated": mock_accel_calibration["calibrated"],
             "accelZeroOffset": mock_accel_calibration["zOffset"],
+            # Simulates a slightly misaligned IMU mount until calibrated,
+            # so the 3D model visibly flattens after hitting Calibrate.
+            "pitchDeg": 0.0 if mock_accel_calibration["calibrated"] else 8.0,
+            "rollDeg": 0.0 if mock_accel_calibration["calibrated"] else -5.0,
             "maintenance": mock_maintenance,
             "map": mock_map,
         }

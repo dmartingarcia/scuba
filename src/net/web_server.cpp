@@ -77,6 +77,10 @@ void setupWebServer() {
     doc["accelCalibrated"] = accelCalibration.calibrated;
     doc["accelZeroOffset"] = accelCalibration.zOffset;
 
+    Attitude attitude = currentAttitude();
+    doc["pitchDeg"] = attitude.pitchDeg;
+    doc["rollDeg"] = attitude.rollDeg;
+
     JsonObject maintenance = doc["maintenance"].to<JsonObject>();
     maintenance["bootCount"] = maintenanceStats.bootCount;
     maintenance["totalRuntimeHours"] = maintenanceStats.totalRuntimeSeconds / 3600.0;
