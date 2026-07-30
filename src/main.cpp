@@ -9,6 +9,7 @@
 #include "app/imu_setup.h"
 #include "app/maintenance.h"
 #include "app/error_reporter.h"
+#include "app/accel_calibration_store.h"
 #include "net/wifi_manager.h"
 #include "net/ota_manager.h"
 #include "net/web_server.h"
@@ -41,6 +42,7 @@ void setup() {
   turnStrategy = imu->hasReliableGyro() ? TurnStrategy::Legacy : TurnStrategy::FixedDuration;
 
   maintenanceInit(); // Load persisted stats, record this boot
+  accelCalibrationInit(); // Load persisted accelerometer zero-offset, if any
 }
 
 void loop() {

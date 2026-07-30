@@ -3,6 +3,7 @@
 #include "../globals.h"
 #include "../app/sensors.h"
 #include "../app/error_reporter.h"
+#include "../app/accel_calibration_store.h"
 #include "../index.h" // HTML content for the web interface
 
 void setupWebServer() {
@@ -73,6 +74,8 @@ void setupWebServer() {
     doc["sessionElapsedSeconds"] = (millis() - sessionStartMillis) / 1000;
     doc["imuName"] = imu->name();
     doc["imuHasMagnetometer"] = imu->hasMagnetometer();
+    doc["accelCalibrated"] = accelCalibration.calibrated;
+    doc["accelZeroOffset"] = accelCalibration.zOffset;
 
     JsonObject maintenance = doc["maintenance"].to<JsonObject>();
     maintenance["bootCount"] = maintenanceStats.bootCount;
@@ -108,6 +111,24 @@ void setupWebServer() {
       e["timestamp"] = errorLog.entries[i].timestamp;
       e["active"] = isErrorActive(errorLog, errorLog.entries[i].code);
     }
+
+    String response;
+    serializeJson(doc, response);
+    request->send(200, "application/json", response);
+  });
+
+  // Accelerometer zero calibration: place the robot flat, GET /calibrate.
+  // ?action=clear wipes it back to uncalibrated passthrough.
+  server.on("/calibrate", HTTP_GET, [](AsyncWebServerRequest *request) {
+    if (request->hasParam("action") && request->getParam("action")->value() == "clear") {
+      clearAccelCalibration();
+    } else {
+      calibrateAccelZeroNow();
+    }
+
+    JsonDocument doc;
+    doc["calibrated"] = accelCalibration.calibrated;
+    doc["zOffset"] = accelCalibration.zOffset;
 
     String response;
     serializeJson(doc, response);

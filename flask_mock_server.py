@@ -12,6 +12,8 @@ mock_position = {"x": 15, "y": 15}
 mock_session = {"durationMinutes": 0, "startedAtSeconds": 0}
 mock_stats_save_interval_minutes = 10
 mock_maintenance = {"bootCount": 3, "totalRuntimeHours": 12.5}
+mock_accel_calibration = {"calibrated": False, "zOffset": 0.0}
+mock_errors = []
 mock_logs = "Log de ejemplo\nRobot iniciado\nMovimiento adelante\n..."
 
 
@@ -33,6 +35,8 @@ def status():
             "sessionElapsedSeconds": 90,
             "imuName": "MPU9250",
             "imuHasMagnetometer": False,
+            "accelCalibrated": mock_accel_calibration["calibrated"],
+            "accelZeroOffset": mock_accel_calibration["zOffset"],
             "maintenance": mock_maintenance,
             "map": mock_map,
         }
@@ -67,8 +71,20 @@ def config():
 @app.route("/errors")
 def errors():
     if request.args.get("action") == "clear":
+        mock_errors.clear()
         return "OK"
-    return jsonify({"entries": []})
+    return jsonify({"entries": mock_errors})
+
+
+@app.route("/calibrate")
+def calibrate():
+    if request.args.get("action") == "clear":
+        mock_accel_calibration["calibrated"] = False
+        mock_accel_calibration["zOffset"] = 0.0
+    else:
+        mock_accel_calibration["calibrated"] = True
+        mock_accel_calibration["zOffset"] = -0.02
+    return jsonify(mock_accel_calibration)
 
 
 @app.route("/logs")

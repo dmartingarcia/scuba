@@ -38,6 +38,8 @@
 // Persisted across reboots on LittleFS (wear-leveled flash filesystem).
 #define MAINTENANCE_STATS_PATH "/maintenance.json"
 #define ERROR_LOG_PATH "/errors.json"
+#define ACCEL_CALIBRATION_PATH "/accel_calibration.json"
+#define ACCEL_CALIBRATION_SAMPLES 10
 
 // Movement parameters
 const float WALL_ANGLE_THRESHOLD = 45.0; // Degrees for wall detection

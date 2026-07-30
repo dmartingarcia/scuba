@@ -1,36 +1,261 @@
 <html>
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Scuba Control</title>
   <style>
-    body { font-family: Arial; text-align: center; margin:0px auto; padding-top: 30px; }
-    table { margin-left: auto; margin-right: auto; }
-    .button { padding: 10px 20px; font-size: 24px; border-radius: 5px; }
-    #cleaningMap { border: 1px solid black; margin: 20px auto; }
+    :root {
+      --bg: #0f1720;
+      --panel: #182634;
+      --panel-border: #263a4d;
+      --text: #e6edf3;
+      --text-dim: #8b9bab;
+      --accent: #3fb950;
+      --accent-dim: #1f6feb;
+      --danger: #f85149;
+      --warn: #d29922;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 16px;
+    }
+
+    h1 {
+      font-size: 1.4rem;
+      margin: 0 0 16px;
+      text-align: center;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 12px;
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 10px;
+      padding: 14px 16px;
+    }
+
+    .card h2 {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-dim);
+      margin: 0 0 10px;
+    }
+
+    .row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 4px 0;
+      font-size: 0.95rem;
+    }
+
+    .row .label { color: var(--text-dim); }
+    .row .value { font-weight: 600; }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .badge.ok { background: rgba(63, 185, 80, 0.15); color: var(--accent); }
+    .badge.warn { background: rgba(210, 153, 34, 0.15); color: var(--warn); }
+    .badge.off { background: rgba(139, 155, 171, 0.15); color: var(--text-dim); }
+
+    button, select, input[type=number] {
+      font-family: inherit;
+      font-size: 0.9rem;
+      border-radius: 6px;
+      border: 1px solid var(--panel-border);
+      background: #1c2b3a;
+      color: var(--text);
+      padding: 8px 10px;
+    }
+
+    button {
+      cursor: pointer;
+      background: var(--accent-dim);
+      border-color: var(--accent-dim);
+      color: white;
+      font-weight: 600;
+    }
+    button:hover { filter: brightness(1.1); }
+    button.secondary { background: #1c2b3a; border-color: var(--panel-border); color: var(--text); }
+    button.danger { background: var(--danger); border-color: var(--danger); }
+
+    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+    .btn-row > * { flex: 1; min-width: 90px; }
+
+    label { font-size: 0.85rem; color: var(--text-dim); display: block; margin-bottom: 4px; }
+    .field { margin-bottom: 10px; }
+    .field input, .field select { width: 100%; }
+
+    #cleaningMap {
+      border: 1px solid var(--panel-border);
+      border-radius: 6px;
+      display: block;
+      margin: 0 auto;
+      max-width: 100%;
+    }
+
+    #logArea {
+      background: #0a0f15;
+      color: #7ee787;
+      font-family: "SF Mono", Consolas, monospace;
+      font-size: 0.75rem;
+      height: 180px;
+      overflow: auto;
+      padding: 8px;
+      border-radius: 6px;
+      white-space: pre-wrap;
+      margin: 0;
+    }
+
+    .errors-list { max-height: 160px; overflow: auto; }
+    .error-row { display: flex; justify-content: space-between; font-size: 0.85rem; padding: 4px 0; border-bottom: 1px solid var(--panel-border); }
+    .error-row:last-child { border-bottom: none; }
+    .empty-hint { color: var(--text-dim); font-size: 0.85rem; font-style: italic; }
   </style>
 </head>
 <body>
-  <h1>Robot Vacuum Control</h1>
-  <p>Status: <span id="status">Stopped</span></p>
-  <p>Angle: <span id="angle">0°</span></p>
-  <p>Yaw: <span id="yaw">0°</span></p>
-  <p>Session: <span id="session">-</span></p>
-  <p>Maintenance: <span id="maintenance">-</span></p>
+  <h1>🐬 Scuba Control</h1>
 
-  <p>
-    Run for <input type="number" id="duration" value="0" min="0" style="width:60px"> minutes (0 = unlimited)
-  </p>
-  <button class="button" onclick="controlRobot('start')">Start</button>
-  <button class="button" onclick="controlRobot('stop')">Stop</button>
-  <button class="button" onclick="controlRobot('turn')">Turn</button>
+  <div class="grid">
 
-  <h2>Cleaning Progress</h2>
-  <canvas id="cleaningMap" width="300" height="300"></canvas>
-  <div>
-    <h3>Logs</h3>
-    <pre id="logArea" style="background:#222;color:#0f0;height:200px;overflow:auto"></pre>
+    <div class="card">
+      <h2>Status</h2>
+      <div class="row"><span class="label">State</span><span class="value" id="status">-</span></div>
+      <div class="row"><span class="label">Angle</span><span class="value" id="angle">-</span></div>
+      <div class="row"><span class="label">Yaw</span><span class="value" id="yaw">-</span></div>
+      <div class="row"><span class="label">IMU</span><span class="value" id="imuName">-</span></div>
+      <div class="row"><span class="label">Magnetometer</span><span class="value" id="imuMag">-</span></div>
+    </div>
+
+    <div class="card">
+      <h2>Control</h2>
+      <div class="field">
+        <label for="duration">Run for (minutes, 0 = unlimited)</label>
+        <input type="number" id="duration" value="0" min="0">
+      </div>
+      <div class="btn-row">
+        <button onclick="controlRobot('start')">Start</button>
+        <button class="secondary" onclick="controlRobot('stop')">Stop</button>
+        <button class="secondary" onclick="controlRobot('turn')">Turn</button>
+      </div>
+      <div class="row" style="margin-top:10px"><span class="label">Session</span><span class="value" id="session">-</span></div>
+    </div>
+
+    <div class="card">
+      <h2>Attitude</h2>
+      <svg viewBox="0 0 200 200" width="180" height="180" style="display:block;margin:0 auto;">
+        <defs>
+          <clipPath id="horizonClip"><circle cx="100" cy="100" r="94"/></clipPath>
+        </defs>
+        <g clip-path="url(#horizonClip)">
+          <g id="horizonGroup">
+            <rect x="-300" y="-300" width="600" height="300" fill="#1f6feb" opacity="0.35"/>
+            <rect x="-300" y="0" width="600" height="300" fill="#3fb950" opacity="0.25"/>
+            <line x1="-300" y1="0" x2="300" y2="0" stroke="#e6edf3" stroke-width="2"/>
+          </g>
+        </g>
+        <polygon points="100,84 91,106 109,106" fill="#f85149"/>
+        <circle cx="100" cy="100" r="94" fill="none" stroke="var(--panel-border)" stroke-width="3"/>
+      </svg>
+      <div class="row"><span class="label">Tilt</span><span class="value" id="attitudeAngle">-</span></div>
+    </div>
+
+    <div class="card">
+      <h2>Heading</h2>
+      <svg viewBox="0 0 200 200" width="180" height="180" style="display:block;margin:0 auto;">
+        <circle cx="100" cy="100" r="94" fill="#0a0f15" stroke="var(--panel-border)" stroke-width="3"/>
+        <text x="100" y="18" text-anchor="middle" fill="#8b9bab" font-size="14">N</text>
+        <text x="184" y="105" text-anchor="middle" fill="#8b9bab" font-size="14">E</text>
+        <text x="100" y="194" text-anchor="middle" fill="#8b9bab" font-size="14">S</text>
+        <text x="16" y="105" text-anchor="middle" fill="#8b9bab" font-size="14">W</text>
+        <g id="headingArrow">
+          <polygon points="100,25 90,115 100,98 110,115" fill="#f85149"/>
+        </g>
+        <circle cx="100" cy="100" r="4" fill="#e6edf3"/>
+      </svg>
+      <div class="row"><span class="label">Yaw</span><span class="value" id="headingYaw">-</span></div>
+    </div>
+
+    <div class="card">
+      <h2>Settings</h2>
+      <div class="field">
+        <label for="turnStrategy">Turn strategy</label>
+        <select id="turnStrategy">
+          <option value="legacy">legacy (raw gyro)</option>
+          <option value="duration">duration (fixed pulse)</option>
+          <option value="kalman">kalman (filtered gyro)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="statsSaveInterval">Stats save interval (minutes, 0 = only on session end)</label>
+        <input type="number" id="statsSaveInterval" value="10" min="0">
+      </div>
+      <button onclick="saveConfig()">Save settings</button>
+    </div>
+
+    <div class="card">
+      <h2>Maintenance</h2>
+      <div class="row"><span class="label">Boots</span><span class="value" id="bootCount">-</span></div>
+      <div class="row"><span class="label">Total runtime</span><span class="value" id="totalRuntime">-</span></div>
+    </div>
+
+    <div class="card">
+      <h2>Accelerometer calibration</h2>
+      <div class="row"><span class="label">Status</span><span class="value" id="calStatus">-</span></div>
+      <div class="row"><span class="label">Zero offset</span><span class="value" id="calOffset">-</span></div>
+      <p class="empty-hint">Rest the robot flat before calibrating.</p>
+      <div class="btn-row">
+        <button onclick="calibrate()">Calibrate zero</button>
+        <button class="danger" onclick="clearCalibration()">Clear</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Fault log</h2>
+      <div class="errors-list" id="errorsList"><span class="empty-hint">Loading…</span></div>
+      <div class="btn-row">
+        <button class="danger" onclick="clearErrors()">Clear all</button>
+      </div>
+    </div>
+
   </div>
+
+  <div class="grid" style="margin-top:12px">
+    <div class="card">
+      <h2>Cleaning progress</h2>
+      <canvas id="cleaningMap" width="300" height="300"></canvas>
+    </div>
+
+    <div class="card">
+      <h2>Logs</h2>
+      <pre id="logArea"></pre>
+    </div>
+  </div>
+
   <script>
     var GRID_SIZE = 30;
+
+    function get(url) {
+      return fetch(url).then(r => r.json());
+    }
 
     function controlRobot(action) {
       var url = "/control?action=" + action;
@@ -38,61 +263,119 @@
         var minutes = document.getElementById("duration").value || 0;
         url += "&duration=" + minutes;
       }
-      var xhr = new XMLHttpRequest();
-      xhr.open("GET", url, true);
-      xhr.send();
+      fetch(url);
     }
 
-    setInterval(function() {
-      var xhr = new XMLHttpRequest();
-      xhr.onreadystatechange = function() {
-        if (this.readyState == 4 && this.status == 200) {
-          var data = JSON.parse(this.responseText);
-          document.getElementById("status").innerHTML = data.state;
-          document.getElementById("angle").innerHTML = data.angle + "°";
-          document.getElementById("yaw").innerHTML = data.yaw + "°";
-          document.getElementById("session").innerHTML =
-            data.sessionDurationMinutes > 0
-              ? (data.sessionElapsedSeconds / 60).toFixed(1) + " / " + data.sessionDurationMinutes + " min"
-              : (data.sessionElapsedSeconds / 60).toFixed(1) + " min (unlimited)";
-          document.getElementById("maintenance").innerHTML =
-            data.maintenance.bootCount + " boots, " + data.maintenance.totalRuntimeHours.toFixed(1) + "h total runtime";
-          drawMap(data.map, data.x, data.y);
+    function saveConfig() {
+      var strategy = document.getElementById("turnStrategy").value;
+      var interval = document.getElementById("statsSaveInterval").value || 0;
+      get("/config?turnStrategy=" + strategy + "&statsSaveInterval=" + interval);
+    }
+
+    function calibrate() {
+      get("/calibrate").then(refreshStatus);
+    }
+
+    function clearCalibration() {
+      get("/calibrate?action=clear").then(refreshStatus);
+    }
+
+    function clearErrors() {
+      fetch("/errors?action=clear").then(refreshErrors);
+    }
+
+    function refreshStatus() {
+      get("/status").then(function(data) {
+        document.getElementById("status").innerHTML = data.state;
+        document.getElementById("angle").innerHTML = data.angle.toFixed(1) + "°";
+        document.getElementById("yaw").innerHTML = data.yaw.toFixed(1) + "°";
+
+        document.getElementById("attitudeAngle").innerHTML = data.angle.toFixed(1) + "°";
+        document.getElementById("horizonGroup").setAttribute(
+          "transform", "rotate(" + (-data.angle) + " 100 100)"
+        );
+
+        document.getElementById("headingYaw").innerHTML = data.yaw.toFixed(1) + "°";
+        document.getElementById("headingArrow").setAttribute(
+          "transform", "rotate(" + data.yaw + " 100 100)"
+        );
+        document.getElementById("imuName").innerHTML = data.imuName;
+        document.getElementById("imuMag").innerHTML = data.imuHasMagnetometer
+          ? '<span class="badge ok">present</span>'
+          : '<span class="badge off">absent</span>';
+
+        document.getElementById("session").innerHTML =
+          data.sessionDurationMinutes > 0
+            ? (data.sessionElapsedSeconds / 60).toFixed(1) + " / " + data.sessionDurationMinutes + " min"
+            : (data.sessionElapsedSeconds / 60).toFixed(1) + " min (unlimited)";
+
+        document.getElementById("bootCount").innerHTML = data.maintenance.bootCount;
+        document.getElementById("totalRuntime").innerHTML = data.maintenance.totalRuntimeHours.toFixed(1) + " h";
+
+        document.getElementById("calStatus").innerHTML = data.accelCalibrated
+          ? '<span class="badge ok">calibrated</span>'
+          : '<span class="badge warn">uncalibrated</span>';
+        document.getElementById("calOffset").innerHTML = data.accelZeroOffset.toFixed(3);
+
+        drawMap(data.map, data.x, data.y);
+      });
+    }
+
+    function refreshConfig() {
+      get("/config").then(function(data) {
+        document.getElementById("turnStrategy").value = data.turnStrategy;
+        document.getElementById("statsSaveInterval").value = data.statsSaveIntervalMinutes;
+      });
+    }
+
+    function refreshErrors() {
+      get("/errors").then(function(data) {
+        var el = document.getElementById("errorsList");
+        if (!data.entries.length) {
+          el.innerHTML = '<span class="empty-hint">No faults logged.</span>';
+          return;
         }
-      };
-      xhr.open("GET", "/status", true);
-      xhr.send();
-    }, 1000);
+        el.innerHTML = data.entries.map(function(e) {
+          var badge = e.active ? '<span class="badge warn">active</span>' : '<span class="badge off">cleared</span>';
+          return '<div class="error-row"><span>' + e.name + '</span>' + badge + '</div>';
+        }).join("");
+      });
+    }
 
     function drawMap(mapData, robotX, robotY) {
       var canvas = document.getElementById("cleaningMap");
       var ctx = canvas.getContext("2d");
       var cellSize = canvas.width / GRID_SIZE;
 
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "#0a0f15";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+      ctx.fillStyle = "#3fb950";
       for (var y = 0; y < GRID_SIZE; y++) {
         for (var x = 0; x < GRID_SIZE; x++) {
           if (mapData[y][x]) {
-            ctx.fillStyle = "green";
             ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
           }
         }
       }
 
-      // Draw robot position
-      ctx.fillStyle = "red";
+      ctx.fillStyle = "#f85149";
       ctx.fillRect(robotX * cellSize, robotY * cellSize, cellSize, cellSize);
     }
 
     function updateLogs() {
       fetch('/logs')
         .then(r => r.text())
-        .then(txt => {
-          document.getElementById('logArea').textContent = txt;
-        });
+        .then(txt => { document.getElementById('logArea').textContent = txt; });
     }
-    setInterval(updateLogs, 2000); // Actualiza cada 2 segundos
+
+    setInterval(refreshStatus, 1000);
+    setInterval(updateLogs, 2000);
+    setInterval(refreshErrors, 5000);
+
+    refreshStatus();
+    refreshConfig();
+    refreshErrors();
     updateLogs();
   </script>
 </body>

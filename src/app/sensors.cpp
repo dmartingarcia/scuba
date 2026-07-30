@@ -1,6 +1,7 @@
 #include "sensors.h"
 #include "../globals.h"
 #include "error_reporter.h"
+#include "../logic/accel_calibration.h"
 
 void updateSensors() {
   if ((long)millis() < nextUpdate) return;
@@ -62,5 +63,5 @@ float angle() {
   // accel - X: 0.98 Y:-0.11 Z:-0.09 Sqrt:0.99  boca arriba
   // accel - X: 0.04 Y: 1.01 Z:-0.09 Sqrt:1.01 de canto 1
   // accel - X:-0.08 Y:-1.00 Z:-0.00 Sqrt:1.00 de canto 2
-  return 90.0f * aZ;
+  return 90.0f * applyAccelCalibration(aZ, accelCalibration);
 }

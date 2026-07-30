@@ -37,3 +37,5 @@ MaintenanceStats maintenanceStats = {0, 0};
 ErrorLog errorLog = {};
 
 TurnStrategy turnStrategy = TurnStrategy::Legacy; // overwritten in setup() per detected IMU
+
+AccelCalibration accelCalibration = defaultAccelCalibration();
