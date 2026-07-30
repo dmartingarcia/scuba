@@ -130,6 +130,17 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
       border-radius: 4px;
     }
     .robot3d .front  { width: 130px; height: 36px; left: 0; top: 0; background: #e5533d; transform: translateZ(40px); }
+    .robot3d .front .arrow {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 0;
+      height: 0;
+      border-left: 10px solid transparent;
+      border-right: 10px solid transparent;
+      border-bottom: 16px solid #fff;
+      transform: translate(-50%, -50%);
+    }
     .robot3d .back   { width: 130px; height: 36px; left: 0; top: 0; background: #123246; transform: rotateY(180deg) translateZ(40px); }
     .robot3d .left   { width: 80px; height: 36px; left: 25px; top: 0; background: #16456a; transform: rotateY(-90deg) translateZ(65px); }
     .robot3d .right  { width: 80px; height: 36px; left: 25px; top: 0; background: #16456a; transform: rotateY(90deg) translateZ(65px); }
@@ -197,7 +208,7 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
         <div class="robot3d" id="robot3d">
           <div class="face top"></div>
           <div class="face bottom"></div>
-          <div class="face front"></div>
+          <div class="face front"><div class="arrow"></div></div>
           <div class="face back"></div>
           <div class="face left"></div>
           <div class="face right"></div>
