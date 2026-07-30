@@ -4,6 +4,7 @@
 #include "../app/sensors.h"
 #include "../app/error_reporter.h"
 #include "../app/accel_calibration_store.h"
+#include "../app/mqtt_config_store.h"
 #include "../index.h" // HTML content for the web interface
 
 void setupWebServer() {
@@ -30,8 +31,10 @@ void setupWebServer() {
           sessionDurationMs = (unsigned long)request->getParam("duration")->value().toInt() * 60000UL;
         }
         sessionStartMillis = millis();
+        sessionCompletedByTimer = false;
         currentState = MOVING_FORWARD;
       } else if (action == "stop") {
+        sessionCompletedByTimer = false; // manual stop = paused, not finished
         currentState = STOPPED;
       } else if (action == "turn") {
         currentState = TURNING;
@@ -133,6 +136,35 @@ void setupWebServer() {
     JsonDocument doc;
     doc["calibrated"] = accelCalibration.calibrated;
     doc["zOffset"] = accelCalibration.zOffset;
+
+    String response;
+    serializeJson(doc, response);
+    request->send(200, "application/json", response);
+  });
+
+  // MQTT / Home Assistant config: GET updates whatever params are present,
+  // ?action=reset wipes it back to defaults (disabled). Password is never
+  // echoed back in the response.
+  server.on("/mqtt", HTTP_GET, [](AsyncWebServerRequest *request) {
+    if (request->hasParam("action") && request->getParam("action")->value() == "reset") {
+      resetMqttConfig();
+    } else {
+      if (request->hasParam("enabled")) mqttConfig.enabled = request->getParam("enabled")->value() == "1";
+      if (request->hasParam("host")) mqttConfig.host = request->getParam("host")->value();
+      if (request->hasParam("port")) mqttConfig.port = (uint16_t)request->getParam("port")->value().toInt();
+      if (request->hasParam("user")) mqttConfig.user = request->getParam("user")->value();
+      if (request->hasParam("password")) mqttConfig.password = request->getParam("password")->value();
+      if (request->hasParam("topicPrefix")) mqttConfig.topicPrefix = request->getParam("topicPrefix")->value();
+      saveMqttConfig();
+    }
+
+    JsonDocument doc;
+    doc["enabled"] = mqttConfig.enabled;
+    doc["host"] = mqttConfig.host;
+    doc["port"] = mqttConfig.port;
+    doc["user"] = mqttConfig.user;
+    doc["topicPrefix"] = mqttConfig.topicPrefix;
+    doc["hasPassword"] = mqttConfig.password.length() > 0;
 
     String response;
     serializeJson(doc, response);

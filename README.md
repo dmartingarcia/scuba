@@ -221,6 +221,7 @@ Planned — tackled one at a time, incrementally, so we never break a working ro
 
 ### Wall-climbing detection (experimental)
 - Investigate whether the chassis/motors can climb the pool wall like some commercial pool robots do. Once submerged there's no WiFi to lean on, so this needs an on-device check (IMU-based) with no connectivity assumed — pure exploration, not guaranteed to work with this hardware.
+- Needs the movement motor at full power (`MOVIMIENTO_MOVE_SPEED`, currently a modest 100/255) to have any chance of climbing - not the idle/cleaning speed.
 
 ---
 

@@ -76,6 +76,7 @@ void robotLogic() {
   if (currentState != STOPPED && isSessionTimeUp(millis(), sessionStartMillis, sessionDurationMs)) {
     logBuffer.println("Configured session duration reached, stopping.");
     currentState = STOPPED;
+    sessionCompletedByTimer = true;
   }
 
   switch (currentState) {
@@ -104,6 +105,7 @@ void robotLogic() {
 
       currentState = MOVING_FORWARD;
       sessionStartMillis = millis();
+      sessionCompletedByTimer = false;
       logBuffer.println("Robot started and ready to move.");
       break;
 

@@ -11,6 +11,8 @@ enum class ErrorCode : uint8_t {
     BmpInitFailed = 3,
     TurnTimeout = 4,
     WifiConnectFailed = 5,
+    MqttConnectFailed = 6,
+    UnexpectedReset = 7, // Boot caused by panic/watchdog/brownout, not power-on or a clean reset
 };
 
 #define ERROR_LOG_CAPACITY 16
@@ -58,6 +60,8 @@ inline const char* errorCodeName(uint8_t code) {
         case ErrorCode::BmpInitFailed: return "BmpInitFailed";
         case ErrorCode::TurnTimeout: return "TurnTimeout";
         case ErrorCode::WifiConnectFailed: return "WifiConnectFailed";
+        case ErrorCode::MqttConnectFailed: return "MqttConnectFailed";
+        case ErrorCode::UnexpectedReset: return "UnexpectedReset";
         default: return "Unknown";
     }
 }

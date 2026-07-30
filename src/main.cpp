@@ -10,13 +10,16 @@
 #include "app/maintenance.h"
 #include "app/error_reporter.h"
 #include "app/accel_calibration_store.h"
+#include "app/mqtt_config_store.h"
 #include "net/wifi_manager.h"
 #include "net/ota_manager.h"
 #include "net/web_server.h"
+#include "net/mqtt_manager.h"
 
 void setup() {
   Serial.begin(9600); // Initialize serial communication for debugging
   errorReporterInit(); // Mount LittleFS, load persisted fault log
+  checkResetReason(); // Logs UnexpectedReset if last boot was a crash/watchdog/brownout
   setupWifi(); // Connect to WiFi
   setupOta(); // Setup OTA updates
   setupWebServer(); // Setup web server
@@ -43,6 +46,8 @@ void setup() {
 
   maintenanceInit(); // Load persisted stats, record this boot
   accelCalibrationInit(); // Load persisted accelerometer zero-offset, if any
+  mqttConfigInit(); // Load persisted MQTT broker config, if any
+  setupMqtt();
 }
 
 void loop() {
@@ -52,5 +57,6 @@ void loop() {
   updatePosition();
   updateYaw(); // Update yaw angle based on gyro data
   maintenanceTick();
+  maintainMqtt();
   led.handleBlink();
 }

@@ -14,6 +14,7 @@
 #include "logic/error_log.h"
 #include "logic/turn_strategy.h"
 #include "logic/accel_calibration.h"
+#include "app/mqtt_config.h"
 
 // Shared robot state, defined once in globals.cpp. Every module that reads
 // or drives the robot (sensors, robot_logic, position_tracker, web_server,
@@ -67,5 +68,12 @@ extern TurnStrategy turnStrategy;
 // Accelerometer zero-offset (corrects a not-perfectly-level IMU mount),
 // persisted to LittleFS. See app/accel_calibration_store.h.
 extern AccelCalibration accelCalibration;
+
+// MQTT / Home Assistant integration
+extern MqttConfig mqttConfig;
+// True if the current STOPPED state was reached because the configured
+// session duration ran out (vs. a manual stop) - lets MQTT report
+// "finished" instead of "paused". See logic/ha_state.h.
+extern bool sessionCompletedByTimer;
 
 #endif // GLOBALS_H

@@ -40,6 +40,11 @@
 #define ERROR_LOG_PATH "/errors.json"
 #define ACCEL_CALIBRATION_PATH "/accel_calibration.json"
 #define ACCEL_CALIBRATION_SAMPLES 10
+#define MQTT_CONFIG_PATH "/mqtt_config.json"
+#define MQTT_DEVICE_NAME "Pool Robot"
+#define MQTT_DEFAULT_TOPIC_PREFIX "scuba"
+#define MQTT_RECONNECT_INTERVAL_MS 15000
+#define MQTT_PUBLISH_INTERVAL_MS 10000
 
 // Movement parameters
 const float WALL_ANGLE_THRESHOLD = 45.0; // Degrees for wall detection

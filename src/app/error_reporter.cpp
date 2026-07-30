@@ -1,5 +1,6 @@
 #include <LittleFS.h>
 #include <ArduinoJson.h>
+#include <esp_system.h>
 #include "error_reporter.h"
 #include "../globals.h"
 #include "../config.h"
@@ -73,4 +74,22 @@ void clearErrorCode(ErrorCode code) {
 void clearAllErrors() {
   errorLog = {};
   persistErrorLog();
+}
+
+void checkResetReason() {
+  esp_reset_reason_t reason = esp_reset_reason();
+  bool unexpected = reason == ESP_RST_PANIC
+                 || reason == ESP_RST_INT_WDT
+                 || reason == ESP_RST_TASK_WDT
+                 || reason == ESP_RST_WDT
+                 || reason == ESP_RST_BROWNOUT;
+
+  if (!unexpected) return;
+
+  logBuffer.println("Last boot was NOT clean - reset reason code: " + String((int)reason));
+  // One-shot event, not an ongoing condition: log it, then immediately clear
+  // so the NEXT bad reset (even the same reason) also gets recorded instead
+  // of being deduped away by the "already active" rule.
+  logError(ErrorCode::UnexpectedReset);
+  clearErrorCode(ErrorCode::UnexpectedReset);
 }

@@ -7,5 +7,6 @@ void errorReporterInit();              // Load persisted error log from LittleFS
 void logError(ErrorCode code);         // Record + persist immediately; deduped while active
 void clearErrorCode(ErrorCode code);   // Mark resolved so the next occurrence logs again
 void clearAllErrors();                 // Wipe the whole fault log (manual "clear codes" action)
+void checkResetReason();               // Logs UnexpectedReset if this boot was a panic/watchdog/brownout
 
 #endif // ERROR_REPORTER_H

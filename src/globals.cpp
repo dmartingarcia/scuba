@@ -39,3 +39,6 @@ ErrorLog errorLog = {};
 TurnStrategy turnStrategy = TurnStrategy::Legacy; // overwritten in setup() per detected IMU
 
 AccelCalibration accelCalibration = defaultAccelCalibration();
+
+MqttConfig mqttConfig;
+bool sessionCompletedByTimer = false;
