@@ -14,6 +14,7 @@
 #include "logic/error_log.h"
 #include "logic/turn_strategy.h"
 #include "logic/accel_calibration.h"
+#include "logic/tuning_params.h"
 #include "app/mqtt_config.h"
 
 // Shared robot state, defined once in globals.cpp. Every module that reads
@@ -37,12 +38,24 @@ extern int currentX;
 extern int currentY;
 
 extern long nextTimeLogic;
+extern long nextTimeLogUpdate;
 extern long nextUpdate;
 extern long timeToAutostart;
 extern long nextPositionUpdate;
 extern long maxTurningMillis;
 extern long timeout;
 extern long timeToConnectWifi;
+
+// Manual one-shot pulse (see /control?action=forward|backward in
+// web_server.cpp): a single request drives the robot for
+// tuning.manualActionDurationMs, then robotLogic() automatically restores
+// manualRevertState (whatever currentState was right before the pulse) -
+// entirely server-side, no further requests needed from the caller.
+// action=turn uses the same previousState mechanism the autonomous
+// wall-avoidance turn already has (see turnToDirection()), not this pulse.
+extern bool manualControlActive;
+extern long manualActionDeadlineMillis;
+extern RobotState manualRevertState;
 
 extern float aX, aY, aZ, aSqrt, gX, gY, gZ, temp, pressure;
 extern float yaw;
@@ -68,6 +81,11 @@ extern TurnStrategy turnStrategy;
 // Accelerometer zero-offset (corrects a not-perfectly-level IMU mount),
 // persisted to LittleFS. See app/accel_calibration_store.h.
 extern AccelCalibration accelCalibration;
+
+// Live motor/angle/timing tuning, persisted to LittleFS. config.h's
+// DEFAULT_* constants are only the seed values - see logic/tuning_params.h
+// and app/tuning_store.h. Overridable at runtime via /tuning.
+extern TuningParams tuning;
 
 // MQTT / Home Assistant integration
 extern MqttConfig mqttConfig;
