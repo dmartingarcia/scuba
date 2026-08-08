@@ -16,6 +16,28 @@ mock_accel_calibration = {"calibrated": False, "zOffset": 0.0}
 mock_errors = []
 mock_mqtt = {"enabled": False, "host": "", "port": 1883, "user": "", "password": "", "topicPrefix": "scuba"}
 mock_logs = "Log de ejemplo\nRobot iniciado\nMovimiento adelante\n..."
+mock_state = "MOVING_FORWARD"
+
+# Mirrors the DEFAULT_* constants in src/config.h - see logic/tuning_params.h
+DEFAULT_TUNING = {
+    "movimientoMoveSpeed": 50,
+    "movimientoMoveBackwardsSpeed": 70,
+    "movimientoIdleSpeed": 25,
+    "aguaTurnSpeed": 256,
+    "aguaMoveSpeed": 245,
+    "aguaIdleSpeed": 180,
+    "wallAngleThreshold": 45.0,
+    "wallAngleRecoverThreshold": 10.0,
+    "floorInclinationPrecision": 10,
+    "turnAngleDeg": 15,
+    "movingTimeoutMs": 120000,
+    "maxTimeTurningMs": 10000,
+    "delayAutostartMs": 30000,
+    "turnDurationMs": 3000,
+    "attitudeSmoothingAlpha": 0.2,
+    "manualActionDurationMs": 1500,
+}
+mock_tuning = dict(DEFAULT_TUNING)
 
 
 @app.route("/")
@@ -27,7 +49,7 @@ def index():
 def status():
     return jsonify(
         {
-            "state": "MOVING_FORWARD",
+            "state": mock_state,
             "angle": 45,
             "yaw": 123,
             "x": mock_position["x"],
@@ -50,10 +72,20 @@ def status():
 
 @app.route("/control")
 def control():
+    global mock_state
     action = request.args.get("action", "")
     print(f"Accion recibida: {action}")
     if action == "start" and "duration" in request.args:
         mock_session["durationMinutes"] = int(request.args.get("duration", 0))
+    state_for_action = {
+        "start": "MOVING_FORWARD",
+        "forward": "MOVING_FORWARD",
+        "backward": "MOVING_BACKWARD",
+        "turn": "TURNING",
+        "stop": "STOPPED",
+    }
+    if action in state_for_action:
+        mock_state = state_for_action[action]
     return "OK"
 
 
@@ -120,6 +152,17 @@ def mqtt():
             "hasPassword": len(mock_mqtt["password"]) > 0,
         }
     )
+
+
+@app.route("/tuning")
+def tuning():
+    if request.args.get("action") == "reset":
+        mock_tuning.update(DEFAULT_TUNING)
+    else:
+        for key in DEFAULT_TUNING:
+            if key in request.args:
+                mock_tuning[key] = float(request.args[key])
+    return jsonify(mock_tuning)
 
 
 @app.route("/logs")
