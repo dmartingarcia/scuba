@@ -1,4 +1,5 @@
 #include <WiFi.h>
+#include <esp_task_wdt.h>
 #include "robot_logic.h"
 #include "../globals.h"
 #include "sensors.h"
@@ -7,27 +8,28 @@
 #include "../logic/session_timer.h"
 
 static void recoverFromWall() {
-  while (maxTurningMillis > (long)millis() && abs(angle()) > WALL_ANGLE_RECOVER_THRESHOLD) {
+  while (maxTurningMillis > (long)millis() && abs(angle()) > tuning.wallAngleRecoverThreshold) {
     if (previousState == MOVING_FORWARD) {
-      motorMovimiento.setSpeed(-MOVIMIENTO_IDLE_SPEED);
+      motorMovimiento.setSpeed(-tuning.movimientoIdleSpeed);
     } else {
-      motorMovimiento.setSpeed(MOVIMIENTO_IDLE_SPEED);
+      motorMovimiento.setSpeed(tuning.movimientoIdleSpeed);
     }
 
     delay(100); // Small delay to prevent excessive CPU usage
-    logBuffer.println("Coming back to angle: " + String(angle()));
+    esp_task_wdt_reset(); // this loop can legitimately run for seconds - keep feeding the watchdog
   }
   motorMovimiento.setSpeed(0);
+  logBuffer.println("rec a" + String(angle()));
 }
 
 static void turnToDirection(int targetDegrees) {
-  motorAgua.setSpeed(AGUA_IDLE_SPEED); // Start turning
+  motorAgua.setSpeed(tuning.aguaIdleSpeed); // Start turning
   recoverFromWall();
-  motorAgua.setSpeed(AGUA_IDLE_SPEED); // Keep turning
+  motorAgua.setSpeed(tuning.aguaIdleSpeed); // Keep turning
 
   bool completed = turnControllerFor(turnStrategy).turn(targetDegrees);
 
-  motorAgua.setSpeed(AGUA_IDLE_SPEED); // Stop water motor
+  motorAgua.setSpeed(tuning.aguaIdleSpeed); // Stop water motor
 
   if (completed) {
     clearErrorCode(ErrorCode::TurnTimeout);
@@ -36,96 +38,112 @@ static void turnToDirection(int targetDegrees) {
   }
 
   if (previousState == MOVING_FORWARD) {
-    currentState = MOVING_BACKWARD; // Change state to moving backward after turning
+    currentState = MOVING_BACKWARD; // Autonomous wall-avoidance: reverse away from it
+  } else if (previousState == MOVING_BACKWARD) {
+    currentState = MOVING_FORWARD; // Autonomous wall-avoidance: reverse away from it
   } else {
-    currentState = MOVING_FORWARD; // Change state to moving forward after turning
+    currentState = previousState; // Manual turn from a non-moving state (e.g. STOPPED) - just go back to it
   }
 }
 
 static void handleWallDetection() {
-  if (angle() > WALL_ANGLE_THRESHOLD || angle() < -WALL_ANGLE_THRESHOLD) {
-    // Wall detected, stop and turn
+  if (angle() > tuning.wallAngleThreshold || angle() < -tuning.wallAngleThreshold) {
+    // Wall detected, stop and turn. This safety response always wins over a
+    // manual forward/backward pulse in progress - drop it rather than let
+    // its revert timer fight the turn afterwards.
     motorMovimiento.setSpeed(0);
     delay(500);
     previousState = currentState;
     currentState = TURNING;
-    maxTurningMillis = millis() + MAX_TIME_TURNING;
+    maxTurningMillis = millis() + tuning.maxTimeTurningMs;
     timeout = millis();
+    manualControlActive = false;
   }
 }
 
 void robotLogic() {
   if (nextTimeLogic > (long)millis()) return; // Prevent logic from running too frequently
   nextTimeLogic += 500; // Run logic every 500ms
-  logBuffer.println("\n\n\n\n\n\n");
-  logBuffer.println("------ Millis: " + String(millis()) + " IP address: " + WiFi.localIP().toString());
-  logBuffer.println("Inclination: " + String(angle()) + " Yaw: " + String(yaw));
-  logBuffer.println("Temperature: " + String(temp) + " C" + " Pressure: " + String(pressure) + " Pa");
-  logBuffer.println("Previous Movement: " + resolveState(previousState) + " Current State: " + resolveState(currentState));
 
-  if ((millis() - timeout) > MOVING_TIMEOUT) { // Set timeout for movement in 100 seconds
+  if (nextTimeLogUpdate <= (long)millis()) { // Heartbeat status line - kept short, buffer is all we have once submerged
+    nextTimeLogUpdate += 5000; // Run every 5 seconds
+    logBuffer.println(String(millis()) + " a" + String(angle()) + " y" + String((int)yaw) + " " + resolveState(currentState));
+  }
+
+  // Manual forward/backward pulse (/control?action=forward|backward): one
+  // request drives the robot for tuning.manualActionDurationMs, then this
+  // restores manualRevertState (whatever currentState was right before the
+  // pulse, captured in web_server.cpp) - entirely server-side.
+  if (manualControlActive && (long)millis() > manualActionDeadlineMillis) {
+    currentState = manualRevertState;
+    manualControlActive = false;
+    logBuffer.println("manual pulse done -> " + resolveState(currentState));
+  }
+
+  if (!manualControlActive && (millis() - timeout) > tuning.movingTimeoutMs && currentState != STOPPED) { // Set timeout for movement if not stopped
     if (currentState == MOVING_FORWARD) {
       currentState = MOVING_BACKWARD;
     } else {
       currentState = MOVING_FORWARD;
     }
     timeout = millis();
-    logBuffer.println("Movement timeout reached, changing state to: " + resolveState(currentState));
+    logBuffer.println("timeout -> " + resolveState(currentState));
   }
 
-  if (currentState != STOPPED && isSessionTimeUp(millis(), sessionStartMillis, sessionDurationMs)) {
-    logBuffer.println("Configured session duration reached, stopping.");
+  if (!manualControlActive && currentState != STOPPED && isSessionTimeUp(millis(), sessionStartMillis, sessionDurationMs)) {
+    logBuffer.println("session done, stopping");
     currentState = STOPPED;
     sessionCompletedByTimer = true;
   }
 
   switch (currentState) {
     case STARTING:
-      logBuffer.println("Starting robot...");
       // read mpu and check if robot is moving, and wait until it is upright
-      if (angle() > FLOOR_INCLINATION_PRECISION) {
-        timeToAutostart = millis() + DELAY_AUTOSTART;
-        logBuffer.println("Robot is not upright, waiting to start...");
+      if (angle() > tuning.floorInclinationPrecision) {
+        timeToAutostart = millis() + tuning.delayAutostartMs;
+        motorAgua.setSpeed(tuning.aguaIdleSpeed / 2);
         return;
       }
 
       if (millis() < (unsigned long)timeToAutostart) {
-        logBuffer.println("Robot is upright, starting in " + String((timeToAutostart - millis()) / 1000) + " seconds");
-        motorAgua.setSpeed(AGUA_IDLE_SPEED / 2);
+        motorAgua.setSpeed(tuning.aguaIdleSpeed / 2);
         return;
       }
 
-      motorAgua.setSpeed(AGUA_TURN_SPEED); // Stop water motor
+      motorAgua.setSpeed(tuning.aguaTurnSpeed); // Stop water motor
       motorMovimiento.setSpeed(10); // Start moving forward slowly
       delay(1000); // Allow some time to start moving
-      motorAgua.setSpeed(AGUA_MOVE_SPEED); // Set water motor speed
+      motorAgua.setSpeed(tuning.aguaMoveSpeed); // Set water motor speed
       delay(1000); // Allow some time to start moving
-      motorAgua.setSpeed(AGUA_IDLE_SPEED); // Stop water motor
+      motorAgua.setSpeed(tuning.aguaIdleSpeed); // Stop water motor
       delay(1000); // Allow some time to start moving
 
       currentState = MOVING_FORWARD;
       sessionStartMillis = millis();
       sessionCompletedByTimer = false;
-      logBuffer.println("Robot started and ready to move.");
+      logBuffer.println("started");
       break;
 
     case MOVING_FORWARD:
-      motorMovimiento.setSpeed(MOVIMIENTO_MOVE_SPEED);
-      motorAgua.setSpeed(AGUA_MOVE_SPEED);
+      motorMovimiento.setSpeed(tuning.movimientoMoveSpeed);
+      motorAgua.setSpeed(tuning.aguaMoveSpeed);
       handleWallDetection();
       break;
 
     case MOVING_BACKWARD:
-      motorMovimiento.setSpeed(-MOVIMIENTO_MOVE_SPEED);
-      motorAgua.setSpeed(AGUA_MOVE_SPEED);
+      motorMovimiento.setSpeed(-tuning.movimientoMoveBackwardsSpeed);
+      motorAgua.setSpeed(tuning.aguaMoveSpeed);
       handleWallDetection();
       break;
 
     case TURNING:
-      turnToDirection(TURN_ANGLE);
+      turnToDirection(tuning.turnAngleDeg);
       break;
 
     case STOPPED:
+      // Terminal state: only /control?action=... (a manual command) may leave
+      // STOPPED. Don't add angle/leveling/timeout checks here that resume
+      // movement on their own.
       motorMovimiento.setSpeed(0);
       motorAgua.setSpeed(0);
       break;
