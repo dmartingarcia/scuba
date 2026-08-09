@@ -19,6 +19,7 @@ struct TuningParams {
     float wallAngleRecoverThreshold = DEFAULT_WALL_ANGLE_RECOVER_THRESHOLD;
     float floorInclinationPrecision = DEFAULT_FLOOR_INCLINATION_PRECISION;
     int turnAngleDeg = DEFAULT_TURN_ANGLE;
+    float upsideDownThreshold = DEFAULT_UPSIDE_DOWN_THRESHOLD;
 
     long movingTimeoutMs = DEFAULT_MOVING_TIMEOUT;
     long maxTimeTurningMs = DEFAULT_MAX_TIME_TURNING;

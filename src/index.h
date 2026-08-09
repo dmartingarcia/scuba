@@ -77,6 +77,7 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
     .badge.ok { background: rgba(63, 185, 80, 0.15); color: var(--accent); }
     .badge.warn { background: rgba(210, 153, 34, 0.15); color: var(--warn); }
     .badge.off { background: rgba(139, 155, 171, 0.15); color: var(--text-dim); }
+    .badge.danger { background: rgba(248, 81, 73, 0.15); color: var(--danger); }
 
     button, select, input[type=number] {
       font-family: inherit;
@@ -369,6 +370,10 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
         <input type="number" id="t_turnAngleDeg" step="1">
       </div>
       <div class="field">
+        <label for="t_upsideDownThreshold">Upside-down detection (accel X, g)</label>
+        <input type="number" id="t_upsideDownThreshold" step="0.05" min="0" max="1">
+      </div>
+      <div class="field">
         <label for="t_movingTimeoutMs">Movement timeout (ms)</label>
         <input type="number" id="t_movingTimeoutMs" step="1000">
       </div>
@@ -511,7 +516,8 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
       MOVING_BACKWARD: "ok",
       TURNING: "ok",
       STARTING: "warn",
-      STOPPED: "off"
+      STOPPED: "off",
+      MAINTENANCE: "danger"
     };
 
     function refreshStatus() {
@@ -566,6 +572,7 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
       "movimientoMoveSpeed", "movimientoMoveBackwardsSpeed", "movimientoIdleSpeed",
       "aguaTurnSpeed", "aguaMoveSpeed", "aguaIdleSpeed",
       "wallAngleThreshold", "wallAngleRecoverThreshold", "floorInclinationPrecision", "turnAngleDeg",
+      "upsideDownThreshold",
       "movingTimeoutMs", "maxTimeTurningMs", "delayAutostartMs", "turnDurationMs",
       "attitudeSmoothingAlpha", "manualActionDurationMs"
     ];

@@ -19,6 +19,7 @@ void saveTuning() {
   doc["wallAngleRecoverThreshold"] = tuning.wallAngleRecoverThreshold;
   doc["floorInclinationPrecision"] = tuning.floorInclinationPrecision;
   doc["turnAngleDeg"] = tuning.turnAngleDeg;
+  doc["upsideDownThreshold"] = tuning.upsideDownThreshold;
   doc["movingTimeoutMs"] = tuning.movingTimeoutMs;
   doc["maxTimeTurningMs"] = tuning.maxTimeTurningMs;
   doc["delayAutostartMs"] = tuning.delayAutostartMs;
@@ -53,6 +54,7 @@ void tuningInit() {
   tuning.wallAngleRecoverThreshold = doc["wallAngleRecoverThreshold"] | d.wallAngleRecoverThreshold;
   tuning.floorInclinationPrecision = doc["floorInclinationPrecision"] | d.floorInclinationPrecision;
   tuning.turnAngleDeg = doc["turnAngleDeg"] | d.turnAngleDeg;
+  tuning.upsideDownThreshold = doc["upsideDownThreshold"] | d.upsideDownThreshold;
   tuning.movingTimeoutMs = doc["movingTimeoutMs"] | d.movingTimeoutMs;
   tuning.maxTimeTurningMs = doc["maxTimeTurningMs"] | d.maxTimeTurningMs;
   tuning.delayAutostartMs = doc["delayAutostartMs"] | d.delayAutostartMs;

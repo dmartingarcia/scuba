@@ -70,6 +70,20 @@ void robotLogic() {
     logBuffer.println(String(millis()) + " a" + String(angle()) + " y" + String((int)yaw) + " " + resolveState(currentState));
   }
 
+  // Flipped onto its back: force MAINTENANCE ahead of everything else below.
+  // Terminal like STOPPED - only /control?action=start or a physical reboot
+  // leaves it (enforced in web_server.cpp), never automatically here.
+  if (isUpsideDown()) {
+    logError(ErrorCode::UpsideDown);
+    if (currentState != MAINTENANCE) {
+      currentState = MAINTENANCE;
+      manualControlActive = false;
+      logBuffer.println("upside down -> maintenance");
+    }
+  } else {
+    clearErrorCode(ErrorCode::UpsideDown);
+  }
+
   // Manual forward/backward pulse (/control?action=forward|backward): one
   // request drives the robot for tuning.manualActionDurationMs, then this
   // restores manualRevertState (whatever currentState was right before the
@@ -80,7 +94,7 @@ void robotLogic() {
     logBuffer.println("manual pulse done -> " + resolveState(currentState));
   }
 
-  if (!manualControlActive && (millis() - timeout) > tuning.movingTimeoutMs && currentState != STOPPED) { // Set timeout for movement if not stopped
+  if (!manualControlActive && (millis() - timeout) > tuning.movingTimeoutMs && currentState != STOPPED && currentState != MAINTENANCE) { // Set timeout for movement if not stopped
     if (currentState == MOVING_FORWARD) {
       currentState = MOVING_BACKWARD;
     } else {
@@ -90,7 +104,7 @@ void robotLogic() {
     logBuffer.println("timeout -> " + resolveState(currentState));
   }
 
-  if (!manualControlActive && currentState != STOPPED && isSessionTimeUp(millis(), sessionStartMillis, sessionDurationMs)) {
+  if (!manualControlActive && currentState != STOPPED && currentState != MAINTENANCE && isSessionTimeUp(millis(), sessionStartMillis, sessionDurationMs)) {
     logBuffer.println("session done, stopping");
     currentState = STOPPED;
     sessionCompletedByTimer = true;
@@ -144,6 +158,13 @@ void robotLogic() {
       // Terminal state: only /control?action=... (a manual command) may leave
       // STOPPED. Don't add angle/leveling/timeout checks here that resume
       // movement on their own.
+      motorMovimiento.setSpeed(0);
+      motorAgua.setSpeed(0);
+      break;
+
+    case MAINTENANCE:
+      // Terminal state: only /control?action=start leaves MAINTENANCE (see
+      // web_server.cpp) - staying upright again on its own doesn't resume.
       motorMovimiento.setSpeed(0);
       motorAgua.setSpeed(0);
       break;

@@ -25,6 +25,15 @@ void setupWebServer() {
     if (request->hasParam("action")) {
       action = request->getParam("action")->value();
 
+      // MAINTENANCE (flipped over, see isUpsideDown() in sensors.cpp) is
+      // terminal like STOPPED, but stricter: only "start" leaves it -
+      // stop/forward/backward/turn are no-ops until you either press Start
+      // or physically reboot the robot.
+      if (currentState == MAINTENANCE && action != "start") {
+        request->send(200, "text/plain", "OK");
+        return;
+      }
+
       if (action == "start") {
         // Optional ?duration=<minutes> sets/resets how long this run should
         // last (0 or omitted = unlimited, keeps the last configured value).
@@ -206,6 +215,7 @@ void setupWebServer() {
       if (request->hasParam("wallAngleRecoverThreshold")) { tuning.wallAngleRecoverThreshold = request->getParam("wallAngleRecoverThreshold")->value().toFloat(); changed = true; }
       if (request->hasParam("floorInclinationPrecision")) { tuning.floorInclinationPrecision = request->getParam("floorInclinationPrecision")->value().toFloat(); changed = true; }
       if (request->hasParam("turnAngleDeg")) { tuning.turnAngleDeg = request->getParam("turnAngleDeg")->value().toInt(); changed = true; }
+      if (request->hasParam("upsideDownThreshold")) { tuning.upsideDownThreshold = request->getParam("upsideDownThreshold")->value().toFloat(); changed = true; }
       if (request->hasParam("movingTimeoutMs")) { tuning.movingTimeoutMs = request->getParam("movingTimeoutMs")->value().toInt(); changed = true; }
       if (request->hasParam("maxTimeTurningMs")) { tuning.maxTimeTurningMs = request->getParam("maxTimeTurningMs")->value().toInt(); changed = true; }
       if (request->hasParam("delayAutostartMs")) { tuning.delayAutostartMs = request->getParam("delayAutostartMs")->value().toInt(); changed = true; }
@@ -226,6 +236,7 @@ void setupWebServer() {
     doc["wallAngleRecoverThreshold"] = tuning.wallAngleRecoverThreshold;
     doc["floorInclinationPrecision"] = tuning.floorInclinationPrecision;
     doc["turnAngleDeg"] = tuning.turnAngleDeg;
+    doc["upsideDownThreshold"] = tuning.upsideDownThreshold;
     doc["movingTimeoutMs"] = tuning.movingTimeoutMs;
     doc["maxTimeTurningMs"] = tuning.maxTimeTurningMs;
     doc["delayAutostartMs"] = tuning.delayAutostartMs;

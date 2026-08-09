@@ -66,6 +66,15 @@ float angle() {
   return 90.0f * calibratedZ(aZ, accelCalibration);
 }
 
+// Flipped onto its back: calibrated accel X flips from ~-1 (resting normally,
+// see the readings above) to ~+1. Normal operation (wall climbs, turns) never
+// pushes X anywhere near that range, so tuning.upsideDownThreshold has a wide
+// safety margin.
+bool isUpsideDown() {
+  updateSensors();
+  return calibratedX(aX, accelCalibration) > tuning.upsideDownThreshold;
+}
+
 // UI-only smoothing (does not touch angle()/wall detection, which must stay
 // responsive): blends each new reading in rather than showing it raw, since
 // a single accelerometer sample is noisy. Tunable via tuning.attitudeSmoothingAlpha.

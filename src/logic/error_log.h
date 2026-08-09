@@ -13,6 +13,7 @@ enum class ErrorCode : uint8_t {
     WifiConnectFailed = 5,
     MqttConnectFailed = 6,
     UnexpectedReset = 7, // Boot caused by panic/watchdog/brownout, not power-on or a clean reset
+    UpsideDown = 8, // Robot detected flipped over (see isUpsideDown() in sensors.cpp) - forced into MAINTENANCE
 };
 
 #define ERROR_LOG_CAPACITY 16
@@ -62,6 +63,7 @@ inline const char* errorCodeName(uint8_t code) {
         case ErrorCode::WifiConnectFailed: return "WifiConnectFailed";
         case ErrorCode::MqttConnectFailed: return "MqttConnectFailed";
         case ErrorCode::UnexpectedReset: return "UnexpectedReset";
+        case ErrorCode::UpsideDown: return "UpsideDown";
         default: return "Unknown";
     }
 }

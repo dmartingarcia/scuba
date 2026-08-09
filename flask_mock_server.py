@@ -30,6 +30,7 @@ DEFAULT_TUNING = {
     "wallAngleRecoverThreshold": 10.0,
     "floorInclinationPrecision": 10,
     "turnAngleDeg": 15,
+    "upsideDownThreshold": 0.6,
     "movingTimeoutMs": 120000,
     "maxTimeTurningMs": 10000,
     "delayAutostartMs": 30000,
@@ -75,6 +76,11 @@ def control():
     global mock_state
     action = request.args.get("action", "")
     print(f"Accion recibida: {action}")
+
+    # MAINTENANCE mirrors the firmware: only "start" leaves it.
+    if mock_state == "MAINTENANCE" and action != "start":
+        return "OK"
+
     if action == "start" and "duration" in request.args:
         mock_session["durationMinutes"] = int(request.args.get("duration", 0))
     state_for_action = {
@@ -83,6 +89,7 @@ def control():
         "backward": "MOVING_BACKWARD",
         "turn": "TURNING",
         "stop": "STOPPED",
+        "flip": "MAINTENANCE",  # not a real firmware action - lets you preview the UI badge
     }
     if action in state_for_action:
         mock_state = state_for_action[action]

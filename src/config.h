@@ -71,6 +71,11 @@ const float DEFAULT_AGUA_IDLE_SPEED = 180; // Speed when not moving
 const float DEFAULT_ATTITUDE_SMOOTHING_ALPHA = 0.2; // EMA blend for UI pitch/roll display
 const long DEFAULT_MANUAL_ACTION_DURATION_MS = 1500; // Manual forward/backward pulse length before auto-reverting
 
+// Calibrated accel X reads ~-1 resting normally, ~+1 flipped onto its back
+// (see the readings logged in sensors.cpp) - a threshold well above what
+// normal operation (wall climbs, turns) ever reaches on that axis.
+const float DEFAULT_UPSIDE_DOWN_THRESHOLD = 0.6;
+
 const long TIME_TO_CONNECT_WIFI = 60000; // 60 seconds to connect to WiFi
 const int RETRIES_WIFI_CONNECT = 10; // Number of retries for WiFi connection
 
