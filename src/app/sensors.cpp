@@ -18,7 +18,12 @@ void updateSensors() {
   if (imu->readAccel(aX, aY, aZ, aSqrt)) {
     clearErrorCode(ErrorCode::ImuReadFailed);
   } else {
-    logBuffer.println("Cannot read accel values");
+    // Only log the first failure of a run, not every one - a sustained I2C
+    // outage would otherwise reprint this on every 100ms tick and swallow
+    // the whole log buffer within seconds.
+    if (!isErrorActive(errorLog, (uint8_t)ErrorCode::ImuReadFailed)) {
+      logBuffer.println("Cannot read accel values");
+    }
     logError(ErrorCode::ImuReadFailed);
   }
 }
@@ -28,8 +33,13 @@ void updateYaw() {
   float dt = (now - lastYawUpdate) / 1000.0; // en segundos
   lastYawUpdate = now;
 
+  // Only log the first failure of a run, not every one - updateYaw() runs on
+  // every loop() iteration, so a sustained I2C outage would otherwise reprint
+  // this hundreds of times per second and swallow the whole log buffer.
   if (!imu->readGyro(gX, gY, gZ)) {
-    logBuffer.println("Cannot read gyro values");
+    if (!isErrorActive(errorLog, (uint8_t)ErrorCode::ImuReadFailed)) {
+      logBuffer.println("Cannot read gyro values");
+    }
     logError(ErrorCode::ImuReadFailed);
     return; // No gyro data, cannot update yaw
   }
@@ -41,7 +51,9 @@ void updateYaw() {
     gZ = (gZ2 + gZ) / 2;
     clearErrorCode(ErrorCode::ImuReadFailed);
   } else {
-    logBuffer.println("Cannot read gyro values");
+    if (!isErrorActive(errorLog, (uint8_t)ErrorCode::ImuReadFailed)) {
+      logBuffer.println("Cannot read gyro values");
+    }
     logError(ErrorCode::ImuReadFailed);
     return; // No gyro data, cannot update yaw
   }
