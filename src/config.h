@@ -85,7 +85,14 @@ const int RETRIES_WIFI_CONNECT = 10; // Number of retries for WiFi connection
 #define AP_FALLBACK_SSID "ScubaRobot-Recovery"
 #define AP_FALLBACK_PASSWORD "scuba1234"
 
-const size_t LOG_BUFFER_SIZE = 30000; // Maximum log buffer size
-const size_t LOG_BUFFER_TRIM_SIZE = 29800; // Size to trim the log
+// Lives in PSRAM (2MB available, otherwise unused by this app) so it can be
+// this large without competing with WiFi/AsyncWebServer for internal SRAM -
+// the whole point is to survive as much of a submerged, unreachable run as
+// possible for later review over /logs. Falls back to a much smaller
+// internal-heap buffer if PSRAM isn't available (see log_buffer.h).
+const size_t LOG_BUFFER_SIZE = 512000; // Maximum log buffer size (PSRAM)
+const size_t LOG_BUFFER_TRIM_SIZE = 500000; // Size to trim the log down to
+const size_t LOG_BUFFER_FALLBACK_SIZE = 30000; // Used if PSRAM allocation fails
+const size_t LOG_BUFFER_FALLBACK_TRIM_SIZE = 29800;
 
 #endif // CONFIG_H

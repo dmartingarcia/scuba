@@ -67,7 +67,10 @@ void robotLogic() {
 
   if (nextTimeLogUpdate <= (long)millis()) { // Heartbeat status line - kept short, buffer is all we have once submerged
     nextTimeLogUpdate += 5000; // Run every 5 seconds
-    logBuffer.println(String(millis()) + " a" + String(angle()) + " y" + String((int)yaw) + " " + resolveState(currentState));
+    // Free heap/PSRAM ride along here so LOG_BUFFER_SIZE (config.h) can be
+    // tuned from real numbers instead of guessing.
+    logBuffer.println(String(millis()) + " a" + String(angle()) + " y" + String((int)yaw) + " " + resolveState(currentState) +
+                       " h" + String(ESP.getFreeHeap()) + " p" + String(ESP.getFreePsram()));
   }
 
   // Flipped onto its back: force MAINTENANCE ahead of everything else below.
