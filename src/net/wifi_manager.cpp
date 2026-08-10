@@ -67,7 +67,9 @@ void setupWifi() {
   logBuffer.println("IP address: ");
   logBuffer.println(WiFi.localIP().toString());
   clearErrorCode(ErrorCode::WifiConnectFailed);
-  esp_ota_mark_app_valid_cancel_rollback(); // first successful connect after an OTA confirms the new image is good
+  // Marking the image valid happens later, at the end of setup() in main.cpp -
+  // reaching WiFi is necessary but not sufficient; sensor/motor init still
+  // has to succeed too before this OTA image gets confirmed.
 }
 
 void maintainWifi() {
