@@ -66,6 +66,15 @@ void setupWebServer() {
         currentState = action == "forward" ? MOVING_FORWARD : MOVING_BACKWARD;
         manualControlActive = true;
         manualActionDeadlineMillis = millis() + tuning.manualActionDurationMs;
+      } else if (action == "maintenance") {
+        // Manual entry into MAINTENANCE (normally only reached via
+        // isUpsideDown() in robotLogic()) - lets /maintenance actions like
+        // rampAgua run without having to physically flip the robot. Same
+        // exit path as the automatic case: only action=start leaves it.
+        motorMovimiento.setSpeed(0);
+        motorAgua.setSpeed(0);
+        manualControlActive = false;
+        currentState = MAINTENANCE;
       }
     }
     request->send(200, "text/plain", "OK");
@@ -256,9 +265,12 @@ void setupWebServer() {
   //   ?action=resetStats    - zero bootCount/totalRuntimeSeconds
   //   ?action=factoryReset  - wipe MQTT/tuning/calibration/fault-log config
   //                           and stats back to defaults, then reboot
-  //   ?action=rampAgua      - ramp the water motor 0->255 over
-  //                           AGUA_RAMP_DURATION_MS; only while flipped into
-  //                           MAINTENANCE (see robotLogic()'s MAINTENANCE case)
+  //   ?action=rampAgua                - ramp the water motor 0->255
+  //   ?action=rampMovimientoForward   - ramp the movement motor 0->255
+  //   ?action=rampMovimientoBackward  - ramp the movement motor 0->-255
+  //                           (all three over MAINTENANCE_RAMP_DURATION_MS;
+  //                           only while flipped into MAINTENANCE - see
+  //                           robotLogic()'s MAINTENANCE case)
   server.on("/maintenance", HTTP_GET, [](AsyncWebServerRequest *request) {
     String action = request->hasParam("action") ? request->getParam("action")->value() : "";
 
@@ -279,13 +291,19 @@ void setupWebServer() {
 
     if (action == "resetStats") {
       resetMaintenanceStats();
-    } else if (action == "rampAgua") {
+    } else if (action == "rampAgua" || action == "rampMovimientoForward" || action == "rampMovimientoBackward") {
       if (currentState != MAINTENANCE) {
         request->send(409, "text/plain", "Flip the robot into MAINTENANCE first");
         return;
       }
-      aguaRampActive = true;
-      aguaRampStartMillis = millis();
+      if (action == "rampAgua") {
+        aguaRampActive = true;
+        aguaRampStartMillis = millis();
+      } else {
+        movimientoRampActive = true;
+        movimientoRampStartMillis = millis();
+        movimientoRampDirection = action == "rampMovimientoForward" ? 1 : -1;
+      }
     }
 
     request->send(200, "text/plain", "OK");

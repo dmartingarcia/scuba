@@ -222,6 +222,10 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
         <button class="secondary" data-state="TURNING" onclick="controlRobot('turn')">Turn</button>
       </div>
       <p class="empty-hint">Forward/Backward nudge for a few seconds, then stop on their own.</p>
+      <div class="btn-row" style="margin-top:8px">
+        <button class="danger" data-state="MAINTENANCE" onclick="controlRobot('maintenance')">Enter maintenance</button>
+      </div>
+      <p class="empty-hint">Stops both motors and holds until Start is pressed - lets the Maintenance card's water motor ramp test run without flipping the robot over.</p>
       <div class="row" style="margin-top:10px"><span class="label">Session</span><span class="value" id="session">-</span></div>
     </div>
 
@@ -414,9 +418,15 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
       <div class="row"><span class="label">Firmware</span><span class="value" id="firmwareCommit">-</span></div>
       <div class="row"><span class="label">Boots</span><span class="value" id="bootCount">-</span></div>
       <div class="row"><span class="label">Total runtime</span><span class="value" id="totalRuntime">-</span></div>
-      <p class="empty-hint">Water motor ramp only runs while flipped into Maintenance state.</p>
+      <p class="empty-hint">Motor ramp tests only run while flipped into Maintenance state.</p>
       <div class="btn-row">
         <button onclick="maintenanceAction('rampAgua')">Ramp water motor</button>
+      </div>
+      <div class="btn-row">
+        <button onclick="maintenanceAction('rampMovimientoForward')">Ramp forward</button>
+        <button onclick="maintenanceAction('rampMovimientoBackward')">Ramp backward</button>
+      </div>
+      <div class="btn-row">
         <button class="danger" onclick="maintenanceAction('resetStats')">Reset stats</button>
       </div>
       <div class="btn-row">

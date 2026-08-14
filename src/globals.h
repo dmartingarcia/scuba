@@ -57,11 +57,15 @@ extern bool manualControlActive;
 extern long manualActionDeadlineMillis;
 extern RobotState manualRevertState;
 
-// Water-motor ramp test (/maintenance?action=rampAgua): only runs while
-// currentState is MAINTENANCE, driven entirely within that case in
-// robotLogic() - see AGUA_RAMP_DURATION_MS in config.h.
+// Motor ramp tests (/maintenance?action=rampAgua|rampMovimientoForward|
+// rampMovimientoBackward): only run while currentState is MAINTENANCE,
+// driven entirely within that case in robotLogic() - see
+// MAINTENANCE_RAMP_DURATION_MS in config.h.
 extern bool aguaRampActive;
 extern unsigned long aguaRampStartMillis;
+extern bool movimientoRampActive;
+extern unsigned long movimientoRampStartMillis;
+extern int movimientoRampDirection; // +1 forward, -1 backward
 
 // Deferred reboot (/maintenance?action=reboot|factoryReset): set from the web
 // handler and acted on in loop(), so the HTTP response has time to flush

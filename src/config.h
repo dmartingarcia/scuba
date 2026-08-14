@@ -77,9 +77,10 @@ const float DEFAULT_AGUA_IDLE_SPEED = 180; // Speed when not moving
 const float DEFAULT_ATTITUDE_SMOOTHING_ALPHA = 0.2; // EMA blend for UI pitch/roll display
 const long DEFAULT_MANUAL_ACTION_DURATION_MS = 2000; // Manual forward/backward pulse length before auto-reverting
 
-// Maintenance test (/maintenance?action=rampAgua): ramps the water motor
-// linearly from 0 to 255 over this long, only while parked in MAINTENANCE.
-const unsigned long AGUA_RAMP_DURATION_MS = 10000;
+// Maintenance tests (/maintenance?action=rampAgua|rampMovimientoForward|
+// rampMovimientoBackward): ramps a motor linearly from 0 to 255 (or 0 to
+// -255) over this long, only while parked in MAINTENANCE.
+const unsigned long MAINTENANCE_RAMP_DURATION_MS = 10000;
 
 // Calibrated accel X reads ~-1 resting normally, ~+1 flipped onto its back
 // (see the readings logged in sensors.cpp) - a threshold well above what

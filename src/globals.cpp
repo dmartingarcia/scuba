@@ -33,6 +33,9 @@ RobotState manualRevertState = STOPPED;
 
 bool aguaRampActive = false;
 unsigned long aguaRampStartMillis = 0;
+bool movimientoRampActive = false;
+unsigned long movimientoRampStartMillis = 0;
+int movimientoRampDirection = 1;
 
 bool rebootRequested = false;
 unsigned long rebootAtMillis = 0;
