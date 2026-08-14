@@ -30,7 +30,7 @@ void Motor::setSpeed(int newSpeed) {
         digitalWrite(rEnablePin, HIGH); // Disable right motor
         digitalWrite(lEnablePin, HIGH); // Disable left motor
 
-        analogWrite(rpwmPin, speed); // Set PWM for forward rotation
+        analogWrite(rpwmPin, abs(speed)); // Set PWM for forward rotation
         analogWrite(lpwmPin, 0);     // No PWM for reverse
     } else if (speed < 0) {
         digitalWrite(rEnablePin, HIGH); // Disable right motor
@@ -38,7 +38,7 @@ void Motor::setSpeed(int newSpeed) {
 
         // Reverse rotation
         analogWrite(rpwmPin, 0);         // No PWM for forward
-        analogWrite(lpwmPin, -speed);    // Set PWM for reverse rotation
+        analogWrite(lpwmPin, abs(speed));    // Set PWM for reverse rotation
     } else {
         // Stop
         analogWrite(rpwmPin, 0);

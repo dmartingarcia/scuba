@@ -24,6 +24,8 @@
 
 #define DEFAULT_MAX_TIME_TURNING 10000
 #define DELAY_UPDATING_SENSORS 100
+#define DELAY_UPDATING_YAW 100 // Throttle gyro polling in the main loop, ms
+#define DELAY_AUTOSTART 30000
 #define DEFAULT_DELAY_AUTOSTART 30000
 #define DELAY_UPDATING_POSITION 2000 // Delay for updating position in milliseconds
 #define DEFAULT_TURN_ANGLE 15 // Degrees to turn when changing direction

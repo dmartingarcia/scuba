@@ -11,7 +11,7 @@
 void setupWebServer() {
   // Serve main page
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(200, "text/html", INDEX_HTML);
+    request->send(200, "text/html; charset=utf-8", INDEX_HTML);
   });
 
   // Serve logs
