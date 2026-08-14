@@ -2,6 +2,7 @@
 const char INDEX_HTML[] PROGMEM = R"rawliteral(
 <html>
 <head>
+  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Scuba Control</title>
   <style>
@@ -410,6 +411,7 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
 
     <div class="card">
       <h2>Maintenance</h2>
+      <div class="row"><span class="label">Firmware</span><span class="value" id="firmwareCommit">-</span></div>
       <div class="row"><span class="label">Boots</span><span class="value" id="bootCount">-</span></div>
       <div class="row"><span class="label">Total runtime</span><span class="value" id="totalRuntime">-</span></div>
     </div>
@@ -549,6 +551,7 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
             ? (data.sessionElapsedSeconds / 60).toFixed(1) + " / " + data.sessionDurationMinutes + " min"
             : (data.sessionElapsedSeconds / 60).toFixed(1) + " min (unlimited)";
 
+        document.getElementById("firmwareCommit").innerHTML = data.firmwareCommit;
         document.getElementById("bootCount").innerHTML = data.maintenance.bootCount;
         document.getElementById("totalRuntime").innerHTML = data.maintenance.totalRuntimeHours.toFixed(1) + " h";
 

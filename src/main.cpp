@@ -48,6 +48,7 @@ void setup() {
 
   errorReporterInit(); // Mount LittleFS, load persisted fault log
   checkResetReason(); // Logs UnexpectedReset if last boot was a crash/watchdog/brownout
+  logBuffer.println(String("Firmware commit: ") + FIRMWARE_COMMIT);
   setupWifi(); // Connect to WiFi
   setupOta(); // Setup OTA updates
   setupWebServer(); // Setup web server

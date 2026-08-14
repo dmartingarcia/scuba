@@ -96,6 +96,7 @@ void setupWebServer() {
   server.on("/status", HTTP_GET, [](AsyncWebServerRequest *request) {
     JsonDocument doc;
     doc["state"] = resolveState(currentState);
+    doc["firmwareCommit"] = FIRMWARE_COMMIT;
     doc["angle"] = angle();
     doc["yaw"] = yaw;
     doc["x"] = currentX;

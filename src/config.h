@@ -1,6 +1,10 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#ifndef FIRMWARE_COMMIT
+#define FIRMWARE_COMMIT "unknown" // Set by get_git_version.py at build time
+#endif
+
 // Pin definitions for the motors and sensors
 #define AGUA_RPWM_Output 13 // Arduino PWM output pin 5; connect to IBT-2 pin 1 (RPWM)
 #define AGUA_LPWM_Output 12 // Arduino PWM output pin 6; connect to IBT-2 pin 2 (LPWM)
@@ -71,7 +75,7 @@ const float DEFAULT_AGUA_TURN_SPEED = 256;
 const float DEFAULT_AGUA_MOVE_SPEED = 245;
 const float DEFAULT_AGUA_IDLE_SPEED = 180; // Speed when not moving
 const float DEFAULT_ATTITUDE_SMOOTHING_ALPHA = 0.2; // EMA blend for UI pitch/roll display
-const long DEFAULT_MANUAL_ACTION_DURATION_MS = 1500; // Manual forward/backward pulse length before auto-reverting
+const long DEFAULT_MANUAL_ACTION_DURATION_MS = 2000; // Manual forward/backward pulse length before auto-reverting
 
 // Calibrated accel X reads ~-1 resting normally, ~+1 flipped onto its back
 // (see the readings logged in sensors.cpp) - a threshold well above what
