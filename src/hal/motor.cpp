@@ -20,10 +20,28 @@ int Motor::checkSpeed(int speed) {
     return clampSpeed(speed);
 }
 
+void Motor::setFakeDisabled(bool disabled) {
+    fakeDisabled = disabled;
+    if (disabled && initialized) {
+        // Force the physical outputs off immediately, regardless of
+        // whatever speed was last actually applied.
+        analogWrite(rpwmPin, 0);
+        analogWrite(lpwmPin, 0);
+        digitalWrite(rEnablePin, LOW);
+        digitalWrite(lEnablePin, LOW);
+    }
+}
+
+bool Motor::isFakeDisabled() const {
+    return fakeDisabled;
+}
+
 void Motor::setSpeed(int newSpeed) {
     if (!initialized) return;
 
     speed = checkSpeed(newSpeed);
+
+    if (fakeDisabled) return; // tracked above via `speed`/getSpeed(), physical pins untouched
 
     if (speed > 0) {
         // Forward rotation

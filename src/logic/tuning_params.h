@@ -28,6 +28,11 @@ struct TuningParams {
     long manualActionDurationMs = DEFAULT_MANUAL_ACTION_DURATION_MS;
 
     float attitudeSmoothingAlpha = DEFAULT_ATTITUDE_SMOOTHING_ALPHA;
+
+    // Diagnostic override: when true, motorAgua.setSpeed() calls are tracked
+    // (getSpeed(), logs, /status all keep reporting as normal) but never
+    // actually reach the physical pins - see Motor::setFakeDisabled().
+    bool aguaDisabledFake = false;
 };
 
 inline TuningParams defaultTuningParams() {

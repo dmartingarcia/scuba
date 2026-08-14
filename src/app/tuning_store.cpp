@@ -26,6 +26,7 @@ void saveTuning() {
   doc["turnDurationMs"] = tuning.turnDurationMs;
   doc["attitudeSmoothingAlpha"] = tuning.attitudeSmoothingAlpha;
   doc["manualActionDurationMs"] = tuning.manualActionDurationMs;
+  doc["aguaDisabledFake"] = tuning.aguaDisabledFake;
   serializeJson(doc, f);
   f.close();
 }
@@ -61,10 +62,12 @@ void tuningInit() {
   tuning.turnDurationMs = doc["turnDurationMs"] | d.turnDurationMs;
   tuning.attitudeSmoothingAlpha = doc["attitudeSmoothingAlpha"] | d.attitudeSmoothingAlpha;
   tuning.manualActionDurationMs = doc["manualActionDurationMs"] | d.manualActionDurationMs;
+  tuning.aguaDisabledFake = doc["aguaDisabledFake"] | d.aguaDisabledFake;
 }
 
 void resetTuning() {
   tuning = defaultTuningParams();
+  motorAgua.setFakeDisabled(tuning.aguaDisabledFake);
   saveTuning();
   logBuffer.println("Tuning params reset to defaults");
 }

@@ -77,6 +77,7 @@ void setup() {
   accelCalibrationInit(); // Load persisted accelerometer zero-offset, if any
   mqttConfigInit(); // Load persisted MQTT broker config, if any
   tuningInit(); // Load persisted motor/angle/timing tuning, if any
+  motorAgua.setFakeDisabled(tuning.aguaDisabledFake);
   setupMqtt();
 
   // Only now, after every step above has run without crashing or hanging -

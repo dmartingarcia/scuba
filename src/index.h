@@ -350,6 +350,9 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
         <label for="t_aguaIdleSpeed">Water motor - idle</label>
         <input type="number" id="t_aguaIdleSpeed" step="1">
       </div>
+      <div class="field">
+        <label><input type="checkbox" id="t_aguaDisabledFake" style="width:auto"> Disable water motor (fake - tracked but never powered)</label>
+      </div>
       <div class="btn-row">
         <button onclick="saveTuning()">Save</button>
         <button class="danger" onclick="resetTuning()">Reset to defaults</button>
@@ -621,6 +624,7 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
       TUNING_FIELDS.forEach(function(f) {
         params[f] = document.getElementById("t_" + f).value;
       });
+      params.aguaDisabledFake = document.getElementById("t_aguaDisabledFake").checked ? "1" : "0";
       get("/tuning?" + new URLSearchParams(params).toString()).then(refreshTuning);
     }
 
@@ -633,6 +637,7 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
         TUNING_FIELDS.forEach(function(f) {
           document.getElementById("t_" + f).value = data[f];
         });
+        document.getElementById("t_aguaDisabledFake").checked = !!data.aguaDisabledFake;
       });
     }
 

@@ -178,13 +178,14 @@ void robotLogic() {
       motorAgua.setSpeed(0);
       break;
 
-    case MAINTENANCE:
+    case MAINTENANCE: {
       // Terminal state: only /control?action=start leaves MAINTENANCE (see
       // web_server.cpp) - staying upright again on its own doesn't resume.
 
       // Movement-motor ramp test (/maintenance?action=rampMovimientoForward|
       // rampMovimientoBackward): drives 0->255 (or 0->-255) over
       // MAINTENANCE_RAMP_DURATION_MS entirely within this case.
+      bool movimientoRampRunning = false;
       if (movimientoRampActive) {
         unsigned long elapsed = millis() - movimientoRampStartMillis;
         if (elapsed >= MAINTENANCE_RAMP_DURATION_MS) {
@@ -193,6 +194,7 @@ void robotLogic() {
           logBuffer.println("movimiento ramp test done");
         } else {
           motorMovimiento.setSpeed(movimientoRampDirection * (int)(elapsed * 255 / MAINTENANCE_RAMP_DURATION_MS));
+          movimientoRampRunning = true;
         }
       } else {
         motorMovimiento.setSpeed(0);
@@ -210,9 +212,16 @@ void robotLogic() {
         } else {
           motorAgua.setSpeed((int)(elapsed * 255 / MAINTENANCE_RAMP_DURATION_MS));
         }
+      } else if (movimientoRampRunning) {
+        // The movement motor has never been driven alone anywhere else in
+        // this codebase - MOVING_FORWARD/MOVING_BACKWARD always run
+        // motorAgua alongside it - and doesn't turn on its own. Match that
+        // here so the forward/backward ramp test actually moves the robot.
+        motorAgua.setSpeed(tuning.aguaMoveSpeed);
       } else {
         motorAgua.setSpeed(0);
       }
       break;
+    }
   }
 }

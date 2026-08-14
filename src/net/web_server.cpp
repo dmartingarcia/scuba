@@ -233,6 +233,11 @@ void setupWebServer() {
       if (request->hasParam("turnDurationMs")) { tuning.turnDurationMs = request->getParam("turnDurationMs")->value().toInt(); changed = true; }
       if (request->hasParam("attitudeSmoothingAlpha")) { tuning.attitudeSmoothingAlpha = request->getParam("attitudeSmoothingAlpha")->value().toFloat(); changed = true; }
       if (request->hasParam("manualActionDurationMs")) { tuning.manualActionDurationMs = request->getParam("manualActionDurationMs")->value().toInt(); changed = true; }
+      if (request->hasParam("aguaDisabledFake")) {
+        tuning.aguaDisabledFake = request->getParam("aguaDisabledFake")->value() == "1";
+        motorAgua.setFakeDisabled(tuning.aguaDisabledFake);
+        changed = true;
+      }
       if (changed) saveTuning();
     }
 
@@ -254,6 +259,7 @@ void setupWebServer() {
     doc["turnDurationMs"] = tuning.turnDurationMs;
     doc["attitudeSmoothingAlpha"] = tuning.attitudeSmoothingAlpha;
     doc["manualActionDurationMs"] = tuning.manualActionDurationMs;
+    doc["aguaDisabledFake"] = tuning.aguaDisabledFake;
 
     String response;
     serializeJson(doc, response);
