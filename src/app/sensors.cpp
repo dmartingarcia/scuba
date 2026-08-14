@@ -23,8 +23,13 @@ void updateSensors() {
   }
 }
 
+static long nextYawUpdate = 0;
+
 void updateYaw() {
   unsigned long now = millis();
+  if ((long)now < nextYawUpdate) return; // Throttle - was running unbounded, hammering I2C every loop()
+  nextYawUpdate = now + DELAY_UPDATING_YAW;
+
   float dt = (now - lastYawUpdate) / 1000.0; // en segundos
   lastYawUpdate = now;
 
