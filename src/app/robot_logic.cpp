@@ -169,7 +169,22 @@ void robotLogic() {
       // Terminal state: only /control?action=start leaves MAINTENANCE (see
       // web_server.cpp) - staying upright again on its own doesn't resume.
       motorMovimiento.setSpeed(0);
-      motorAgua.setSpeed(0);
+
+      // Water-motor ramp test (/maintenance?action=rampAgua): drives 0->255
+      // over AGUA_RAMP_DURATION_MS entirely within this case - currentState
+      // never leaves MAINTENANCE for it.
+      if (aguaRampActive) {
+        unsigned long elapsed = millis() - aguaRampStartMillis;
+        if (elapsed >= AGUA_RAMP_DURATION_MS) {
+          aguaRampActive = false;
+          motorAgua.setSpeed(0);
+          logBuffer.println("agua ramp test done");
+        } else {
+          motorAgua.setSpeed((int)(elapsed * 255 / AGUA_RAMP_DURATION_MS));
+        }
+      } else {
+        motorAgua.setSpeed(0);
+      }
       break;
   }
 }

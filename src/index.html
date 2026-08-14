@@ -412,6 +412,15 @@
       <div class="row"><span class="label">Firmware</span><span class="value" id="firmwareCommit">-</span></div>
       <div class="row"><span class="label">Boots</span><span class="value" id="bootCount">-</span></div>
       <div class="row"><span class="label">Total runtime</span><span class="value" id="totalRuntime">-</span></div>
+      <p class="empty-hint">Water motor ramp only runs while flipped into Maintenance state.</p>
+      <div class="btn-row">
+        <button onclick="maintenanceAction('rampAgua')">Ramp water motor</button>
+        <button class="danger" onclick="maintenanceAction('resetStats')">Reset stats</button>
+      </div>
+      <div class="btn-row">
+        <button class="danger" onclick="maintenanceReboot()">Reboot</button>
+        <button class="danger" onclick="maintenanceFactoryReset()">Factory reset</button>
+      </div>
     </div>
 
     <div class="card">
@@ -480,6 +489,23 @@
 
     function clearErrors() {
       fetch("/errors?action=clear").then(refreshErrors);
+    }
+
+    function maintenanceAction(action) {
+      fetch("/maintenance?action=" + action).then(function(r) {
+        if (!r.ok) return r.text().then(function(t) { alert(t); });
+        refreshStatus();
+      });
+    }
+
+    function maintenanceReboot() {
+      if (!confirm("Reboot the robot now?")) return;
+      fetch("/maintenance?action=reboot");
+    }
+
+    function maintenanceFactoryReset() {
+      if (!confirm("Factory reset: wipes MQTT config, tuning, calibration and fault log, resets stats, then reboots. Continue?")) return;
+      fetch("/maintenance?action=factoryReset");
     }
 
     function saveMqtt() {

@@ -6,6 +6,7 @@
 #include "../app/accel_calibration_store.h"
 #include "../app/mqtt_config_store.h"
 #include "../app/tuning_store.h"
+#include "../app/maintenance.h"
 #include "../index.h" // HTML content for the web interface
 
 void setupWebServer() {
@@ -248,6 +249,46 @@ void setupWebServer() {
     String response;
     serializeJson(doc, response);
     request->send(200, "application/json", response);
+  });
+
+  // Maintenance actions, from the Maintenance card in the web UI:
+  //   ?action=reboot        - restart the ESP32
+  //   ?action=resetStats    - zero bootCount/totalRuntimeSeconds
+  //   ?action=factoryReset  - wipe MQTT/tuning/calibration/fault-log config
+  //                           and stats back to defaults, then reboot
+  //   ?action=rampAgua      - ramp the water motor 0->255 over
+  //                           AGUA_RAMP_DURATION_MS; only while flipped into
+  //                           MAINTENANCE (see robotLogic()'s MAINTENANCE case)
+  server.on("/maintenance", HTTP_GET, [](AsyncWebServerRequest *request) {
+    String action = request->hasParam("action") ? request->getParam("action")->value() : "";
+
+    if (action == "reboot" || action == "factoryReset") {
+      if (action == "factoryReset") {
+        resetMqttConfig();
+        resetTuning();
+        clearAccelCalibration();
+        clearAllErrors();
+        resetMaintenanceStats();
+      }
+      request->send(200, "text/plain", "OK");
+      // Deferred so this response has time to flush before the connection drops.
+      rebootRequested = true;
+      rebootAtMillis = millis() + 500;
+      return;
+    }
+
+    if (action == "resetStats") {
+      resetMaintenanceStats();
+    } else if (action == "rampAgua") {
+      if (currentState != MAINTENANCE) {
+        request->send(409, "text/plain", "Flip the robot into MAINTENANCE first");
+        return;
+      }
+      aguaRampActive = true;
+      aguaRampStartMillis = millis();
+    }
+
+    request->send(200, "text/plain", "OK");
   });
 
   server.begin();

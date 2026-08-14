@@ -51,6 +51,11 @@ void maintenanceInit() {
   wasActive = isActiveState();
 }
 
+void resetMaintenanceStats() {
+  maintenanceStats = {0, 0};
+  persistStats();
+}
+
 void maintenanceTick() {
   unsigned long now = millis();
   uint32_t elapsedSeconds = (now - lastTickMillis) / 1000;

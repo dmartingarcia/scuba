@@ -90,6 +90,13 @@ void setup() {
 
 void loop() {
   esp_task_wdt_reset();
+
+  // Deferred reboot requested via /maintenance?action=reboot|factoryReset -
+  // give the HTTP response time to flush before dropping the connection.
+  if (rebootRequested && (long)millis() > (long)rebootAtMillis) {
+    ESP.restart();
+  }
+
   ArduinoOTA.handle();
   maintainWifi();
   robotLogic();
