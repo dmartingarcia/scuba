@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include <ArduinoOTA.h>
+#include <esp_task_wdt.h>
 #include "config.h"
 #include "globals.h"
 #include "app/sensors.h"
@@ -11,10 +12,19 @@
 #include "app/error_reporter.h"
 #include "app/accel_calibration_store.h"
 #include "app/mqtt_config_store.h"
+#include "app/tuning_store.h"
 #include "net/wifi_manager.h"
 #include "net/ota_manager.h"
 #include "net/web_server.h"
 #include "net/mqtt_manager.h"
+
+// Defers the ESP-IDF bootloader's OTA self-validation instead of letting it
+// auto-confirm the new image before setup() even runs (its default weak
+// implementation just returns true unconditionally). setupWifi() is what
+// actually calls esp_ota_mark_app_valid_cancel_rollback()/
+// esp_ota_mark_app_invalid_rollback_and_reboot() once it knows whether the
+// new firmware can reach WiFi at all.
+extern "C" bool verifyRollbackLater() { return true; }
 
 void setup() {
   Serial.begin(9600); // Initialize serial communication for debugging
@@ -47,10 +57,20 @@ void setup() {
   maintenanceInit(); // Load persisted stats, record this boot
   accelCalibrationInit(); // Load persisted accelerometer zero-offset, if any
   mqttConfigInit(); // Load persisted MQTT broker config, if any
+  tuningInit(); // Load persisted motor/angle/timing tuning, if any
   setupMqtt();
+
+  // From here on, loop() must call esp_task_wdt_reset() regularly (also fed
+  // inside recoverFromWall()/turn() in robot_logic.cpp+turn_controller.cpp,
+  // which can legitimately block for seconds at a time) - if it ever stops,
+  // most likely an I2C lockup talking to the IMU/BMP280, reboot instead of
+  // sitting frozen underwater until someone pulls the robot out.
+  esp_task_wdt_init(WATCHDOG_TIMEOUT_SECONDS, true);
+  esp_task_wdt_add(NULL);
 }
 
 void loop() {
+  esp_task_wdt_reset();
   ArduinoOTA.handle();
   maintainWifi();
   robotLogic();

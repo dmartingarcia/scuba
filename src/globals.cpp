@@ -16,13 +16,20 @@ bool cleanedArea[GRID_SIZE][GRID_SIZE] = {false};
 int currentX = GRID_SIZE / 2;
 int currentY = GRID_SIZE / 2;
 
+TuningParams tuning; // uses its own compiled-in defaults until tuningInit() loads LittleFS
+
 long nextTimeLogic = 1000; // Startup delay of 1 second before robot logic runs
+long nextTimeLogUpdate = 1000;
 long nextUpdate = 0;
-long timeToAutostart = DELAY_AUTOSTART;
+long timeToAutostart = tuning.delayAutostartMs;
 long nextPositionUpdate = 0;
 long maxTurningMillis = 0;
 long timeout = 0;
 long timeToConnectWifi = 0;
+
+bool manualControlActive = false;
+long manualActionDeadlineMillis = 0;
+RobotState manualRevertState = STOPPED;
 
 float aX, aY, aZ, aSqrt, gX, gY, gZ, temp, pressure;
 float yaw = 0;

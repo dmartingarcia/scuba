@@ -2,10 +2,11 @@
 #define LOGBUFFER_H
 
 #include <Arduino.h>
+#include "config.h"
 
 class LogBuffer {
 public:
-    LogBuffer(size_t maxLen = 2000, size_t trimTo = 1500)
+    LogBuffer(size_t maxLen = LOG_BUFFER_SIZE, size_t trimTo = LOG_BUFFER_TRIM_SIZE)
         : maxLength(maxLen), trimLength(trimTo) {}
 
     void print(const String& msg) {

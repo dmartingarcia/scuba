@@ -71,11 +71,29 @@ float angle() {
   return 90.0f * calibratedZ(aZ, accelCalibration);
 }
 
+// UI-only smoothing (does not touch angle()/wall detection, which must stay
+// responsive): blends each new reading in rather than showing it raw, since
+// a single accelerometer sample is noisy. Tunable via tuning.attitudeSmoothingAlpha.
 Attitude currentAttitude() {
   updateSensors();
-  return computeAttitude(
+  Attitude raw = computeAttitude(
     calibratedX(aX, accelCalibration),
     calibratedY(aY, accelCalibration),
     calibratedZ(aZ, accelCalibration)
   );
+
+  static bool initialized = false;
+  static float filteredPitch = 0;
+  static float filteredRoll = 0;
+
+  if (!initialized) {
+    filteredPitch = raw.pitchDeg;
+    filteredRoll = raw.rollDeg;
+    initialized = true;
+  } else {
+    filteredPitch += tuning.attitudeSmoothingAlpha * (raw.pitchDeg - filteredPitch);
+    filteredRoll += tuning.attitudeSmoothingAlpha * (raw.rollDeg - filteredRoll);
+  }
+
+  return {filteredPitch, filteredRoll};
 }

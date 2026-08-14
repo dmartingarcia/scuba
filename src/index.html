@@ -97,6 +97,7 @@
     button:hover { filter: brightness(1.1); }
     button.secondary { background: #1c2b3a; border-color: var(--panel-border); color: var(--text); }
     button.danger { background: var(--danger); border-color: var(--danger); }
+    button.secondary.active { background: var(--accent); border-color: var(--accent); color: #0f1720; }
 
     .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
     .btn-row > * { flex: 1; min-width: 90px; }
@@ -195,7 +196,7 @@
 
     <div class="card">
       <h2>Status</h2>
-      <div class="row"><span class="label">State</span><span class="value" id="status">-</span></div>
+      <div class="row"><span class="label">State</span><span class="value" id="status"><span class="badge off">-</span></span></div>
       <div class="row"><span class="label">Angle</span><span class="value" id="angle">-</span></div>
       <div class="row"><span class="label">Yaw</span><span class="value" id="yaw">-</span></div>
       <div class="row"><span class="label">IMU</span><span class="value" id="imuName">-</span></div>
@@ -210,9 +211,14 @@
       </div>
       <div class="btn-row">
         <button onclick="controlRobot('start')">Start</button>
-        <button class="secondary" onclick="controlRobot('stop')">Stop</button>
-        <button class="secondary" onclick="controlRobot('turn')">Turn</button>
+        <button class="secondary" data-state="STOPPED" onclick="controlRobot('stop')">Stop</button>
       </div>
+      <div class="btn-row" style="margin-top:8px">
+        <button class="secondary" data-state="MOVING_FORWARD" onclick="controlRobot('forward')">Forward</button>
+        <button class="secondary" data-state="MOVING_BACKWARD" onclick="controlRobot('backward')">Backward</button>
+        <button class="secondary" data-state="TURNING" onclick="controlRobot('turn')">Turn</button>
+      </div>
+      <p class="empty-hint">Forward/Backward nudge for a few seconds, then stop on their own.</p>
       <div class="row" style="margin-top:10px"><span class="label">Session</span><span class="value" id="session">-</span></div>
     </div>
 
@@ -303,6 +309,91 @@
       <div class="btn-row">
         <button onclick="saveMqtt()">Save</button>
         <button class="danger" onclick="resetMqtt()">Reset</button>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="section-title">Tuning</div>
+  <div class="grid">
+
+    <div class="card">
+      <h2>Speeds</h2>
+      <div class="field">
+        <label for="t_movimientoMoveSpeed">Forward speed</label>
+        <input type="number" id="t_movimientoMoveSpeed" step="1">
+      </div>
+      <div class="field">
+        <label for="t_movimientoMoveBackwardsSpeed">Backward speed</label>
+        <input type="number" id="t_movimientoMoveBackwardsSpeed" step="1">
+      </div>
+      <div class="field">
+        <label for="t_movimientoIdleSpeed">Turning/idle speed</label>
+        <input type="number" id="t_movimientoIdleSpeed" step="1">
+      </div>
+      <div class="field">
+        <label for="t_aguaTurnSpeed">Water motor - turning</label>
+        <input type="number" id="t_aguaTurnSpeed" step="1">
+      </div>
+      <div class="field">
+        <label for="t_aguaMoveSpeed">Water motor - moving</label>
+        <input type="number" id="t_aguaMoveSpeed" step="1">
+      </div>
+      <div class="field">
+        <label for="t_aguaIdleSpeed">Water motor - idle</label>
+        <input type="number" id="t_aguaIdleSpeed" step="1">
+      </div>
+      <div class="btn-row">
+        <button onclick="saveTuning()">Save</button>
+        <button class="danger" onclick="resetTuning()">Reset to defaults</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Angles &amp; timing</h2>
+      <div class="field">
+        <label for="t_wallAngleThreshold">Wall detection angle (deg)</label>
+        <input type="number" id="t_wallAngleThreshold" step="1">
+      </div>
+      <div class="field">
+        <label for="t_wallAngleRecoverThreshold">Wall recovery angle (deg)</label>
+        <input type="number" id="t_wallAngleRecoverThreshold" step="1">
+      </div>
+      <div class="field">
+        <label for="t_floorInclinationPrecision">Upright precision (deg)</label>
+        <input type="number" id="t_floorInclinationPrecision" step="1">
+      </div>
+      <div class="field">
+        <label for="t_turnAngleDeg">Turn angle (deg)</label>
+        <input type="number" id="t_turnAngleDeg" step="1">
+      </div>
+      <div class="field">
+        <label for="t_movingTimeoutMs">Movement timeout (ms)</label>
+        <input type="number" id="t_movingTimeoutMs" step="1000">
+      </div>
+      <div class="field">
+        <label for="t_maxTimeTurningMs">Max turning time (ms)</label>
+        <input type="number" id="t_maxTimeTurningMs" step="1000">
+      </div>
+      <div class="field">
+        <label for="t_delayAutostartMs">Autostart delay (ms)</label>
+        <input type="number" id="t_delayAutostartMs" step="1000">
+      </div>
+      <div class="field">
+        <label for="t_turnDurationMs">Fixed turn duration (ms)</label>
+        <input type="number" id="t_turnDurationMs" step="100">
+      </div>
+      <div class="field">
+        <label for="t_attitudeSmoothingAlpha">Attitude smoothing (0-1, lower = smoother)</label>
+        <input type="number" id="t_attitudeSmoothingAlpha" step="0.05" min="0" max="1">
+      </div>
+      <div class="field">
+        <label for="t_manualActionDurationMs">Manual forward/backward nudge duration (ms)</label>
+        <input type="number" id="t_manualActionDurationMs" step="100">
+      </div>
+      <div class="btn-row">
+        <button onclick="saveTuning()">Save</button>
+        <button class="danger" onclick="resetTuning()">Reset to defaults</button>
       </div>
     </div>
 
@@ -414,9 +505,21 @@
       });
     }
 
+    var STATE_BADGE_CLASS = {
+      MOVING_FORWARD: "ok",
+      MOVING_BACKWARD: "ok",
+      TURNING: "ok",
+      STARTING: "warn",
+      STOPPED: "off"
+    };
+
     function refreshStatus() {
       get("/status").then(function(data) {
-        document.getElementById("status").innerHTML = data.state;
+        var badgeClass = STATE_BADGE_CLASS[data.state] || "off";
+        document.getElementById("status").innerHTML = '<span class="badge ' + badgeClass + '">' + data.state + '</span>';
+        document.querySelectorAll("[data-state]").forEach(function(btn) {
+          btn.classList.toggle("active", btn.getAttribute("data-state") === data.state);
+        });
         document.getElementById("angle").innerHTML = data.angle.toFixed(1) + "°";
         document.getElementById("yaw").innerHTML = data.yaw.toFixed(1) + "°";
 
@@ -455,6 +558,34 @@
       get("/config").then(function(data) {
         document.getElementById("turnStrategy").value = data.turnStrategy;
         document.getElementById("statsSaveInterval").value = data.statsSaveIntervalMinutes;
+      });
+    }
+
+    var TUNING_FIELDS = [
+      "movimientoMoveSpeed", "movimientoMoveBackwardsSpeed", "movimientoIdleSpeed",
+      "aguaTurnSpeed", "aguaMoveSpeed", "aguaIdleSpeed",
+      "wallAngleThreshold", "wallAngleRecoverThreshold", "floorInclinationPrecision", "turnAngleDeg",
+      "movingTimeoutMs", "maxTimeTurningMs", "delayAutostartMs", "turnDurationMs",
+      "attitudeSmoothingAlpha", "manualActionDurationMs"
+    ];
+
+    function saveTuning() {
+      var params = {};
+      TUNING_FIELDS.forEach(function(f) {
+        params[f] = document.getElementById("t_" + f).value;
+      });
+      get("/tuning?" + new URLSearchParams(params).toString()).then(refreshTuning);
+    }
+
+    function resetTuning() {
+      get("/tuning?action=reset").then(refreshTuning);
+    }
+
+    function refreshTuning() {
+      get("/tuning").then(function(data) {
+        TUNING_FIELDS.forEach(function(f) {
+          document.getElementById("t_" + f).value = data[f];
+        });
       });
     }
 
@@ -507,6 +638,7 @@
     refreshConfig();
     refreshErrors();
     refreshMqtt();
+    refreshTuning();
     updateLogs();
   </script>
 </body>

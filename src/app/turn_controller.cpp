@@ -1,3 +1,4 @@
+#include <esp_task_wdt.h>
 #include "turn_controller.h"
 #include "../globals.h"
 #include "sensors.h"
@@ -9,18 +10,19 @@ class LegacyGyroTurn : public TurnController {
 public:
     bool turn(int targetDegrees) override {
         YawRange targetRange = computeTurnRange(yaw, targetDegrees);
-        logBuffer.println("Turning (gyro) to target yaw: " + String(targetRange.min) + "- " + String(targetRange.max) + " from current yaw: " + String(yaw));
 
         while (maxTurningMillis > (long)millis() && isYawOutsideRange(yaw, targetRange)) {
             updateYaw(); // Update yaw angle based on gyro data
-            motorAgua.setSpeed(AGUA_TURN_SPEED); // Keep turning
-            logBuffer.println("Turning... Yaw: " + String(yaw) + " Target -> min:" + String(targetRange.min) + " - max:" + String(targetRange.max));
+            motorAgua.setSpeed(tuning.aguaTurnSpeed); // Keep turning
             delay(500); // Small delay to prevent excessive CPU usage
-            motorAgua.setSpeed(AGUA_IDLE_SPEED); // Keep turning
+            motorAgua.setSpeed(tuning.aguaIdleSpeed); // Keep turning
             delay(500); // Small delay to prevent excessive CPU usage
+            esp_task_wdt_reset(); // this loop can legitimately run for seconds - keep feeding the watchdog
         }
 
-        return !isYawOutsideRange(yaw, targetRange);
+        bool completed = !isYawOutsideRange(yaw, targetRange);
+        logBuffer.println("turn(gyro) y" + String((int)yaw) + " tgt" + String(targetRange.min) + "-" + String(targetRange.max) + (completed ? " ok" : " FAIL"));
+        return completed;
     }
 
     const char* name() const override { return "legacy"; }
@@ -32,17 +34,19 @@ class FixedDurationTurn : public TurnController {
 public:
     bool turn(int targetDegrees) override {
         (void)targetDegrees; // Not yaw-aware - pulses for a flat calibrated duration
-        logBuffer.println("Turning (fixed duration - gyro not reliable on this IMU)");
         unsigned long turnStart = millis();
 
-        while (maxTurningMillis > (long)millis() && !isTimeElapsed(millis(), turnStart, TURN_DURATION_MS)) {
-            motorAgua.setSpeed(AGUA_TURN_SPEED); // Keep turning
+        while (maxTurningMillis > (long)millis() && !isTimeElapsed(millis(), turnStart, tuning.turnDurationMs)) {
+            motorAgua.setSpeed(tuning.aguaTurnSpeed); // Keep turning
             delay(500); // Small delay to prevent excessive CPU usage
-            motorAgua.setSpeed(AGUA_IDLE_SPEED); // Keep turning
+            motorAgua.setSpeed(tuning.aguaIdleSpeed); // Keep turning
             delay(500); // Small delay to prevent excessive CPU usage
+            esp_task_wdt_reset(); // this loop can legitimately run for seconds - keep feeding the watchdog
         }
 
-        return isTimeElapsed(millis(), turnStart, TURN_DURATION_MS);
+        bool completed = isTimeElapsed(millis(), turnStart, tuning.turnDurationMs);
+        logBuffer.println(String("turn(duration)") + (completed ? " ok" : " FAIL"));
+        return completed;
     }
 
     const char* name() const override { return "duration"; }
@@ -56,13 +60,12 @@ class KalmanGyroTurn : public TurnController {
 public:
     bool turn(int targetDegrees) override {
         YawRange targetRange = computeTurnRange(yaw, targetDegrees);
-        logBuffer.println("Turning (Kalman gyro) to target yaw: " + String(targetRange.min) + "- " + String(targetRange.max) + " from current yaw: " + String(yaw));
 
         KalmanState kalman = kalmanInit(0.0f);
         unsigned long lastSample = millis();
 
         while (maxTurningMillis > (long)millis() && isYawOutsideRange(yaw, targetRange)) {
-            motorAgua.setSpeed(AGUA_TURN_SPEED); // Keep turning
+            motorAgua.setSpeed(tuning.aguaTurnSpeed); // Keep turning
 
             float gxRaw, gyRaw, gzRaw;
             if (imu->readGyro(gxRaw, gyRaw, gzRaw)) {
@@ -78,13 +81,15 @@ public:
                 while (yaw >= 360) yaw -= 360;
             }
 
-            logBuffer.println("Turning... Yaw: " + String(yaw) + " (filtered rate " + String(kalman.rate) + ") Target -> min:" + String(targetRange.min) + " - max:" + String(targetRange.max));
             delay(500); // Small delay to prevent excessive CPU usage
-            motorAgua.setSpeed(AGUA_IDLE_SPEED); // Keep turning
+            motorAgua.setSpeed(tuning.aguaIdleSpeed); // Keep turning
             delay(500); // Small delay to prevent excessive CPU usage
+            esp_task_wdt_reset(); // this loop can legitimately run for seconds - keep feeding the watchdog
         }
 
-        return !isYawOutsideRange(yaw, targetRange);
+        bool completed = !isYawOutsideRange(yaw, targetRange);
+        logBuffer.println("turn(kalman) y" + String((int)yaw) + " tgt" + String(targetRange.min) + "-" + String(targetRange.max) + (completed ? " ok" : " FAIL"));
+        return completed;
     }
 
     const char* name() const override { return "kalman"; }

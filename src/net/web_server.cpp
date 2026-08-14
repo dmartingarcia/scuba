@@ -5,6 +5,7 @@
 #include "../app/error_reporter.h"
 #include "../app/accel_calibration_store.h"
 #include "../app/mqtt_config_store.h"
+#include "../app/tuning_store.h"
 #include "../index.h" // HTML content for the web interface
 
 void setupWebServer() {
@@ -32,12 +33,29 @@ void setupWebServer() {
         }
         sessionStartMillis = millis();
         sessionCompletedByTimer = false;
+        manualControlActive = false;
         currentState = MOVING_FORWARD;
       } else if (action == "stop") {
         sessionCompletedByTimer = false; // manual stop = paused, not finished
+        manualControlActive = false;
         currentState = STOPPED;
       } else if (action == "turn") {
+        // One-shot: same previousState mechanism the autonomous
+        // wall-avoidance turn uses (see handleWallDetection() in
+        // robot_logic.cpp) - turnToDirection() restores it automatically
+        // once the turn completes, no follow-up request needed.
+        previousState = currentState;
         currentState = TURNING;
+        maxTurningMillis = millis() + tuning.maxTimeTurningMs;
+        timeout = millis();
+      } else if (action == "forward" || action == "backward") {
+        // One-shot pulse: drive for tuning.manualActionDurationMs, then
+        // robotLogic() automatically restores manualRevertState - entirely
+        // server-side, no follow-up "stop" request needed from the caller.
+        if (!manualControlActive) manualRevertState = currentState;
+        currentState = action == "forward" ? MOVING_FORWARD : MOVING_BACKWARD;
+        manualControlActive = true;
+        manualActionDeadlineMillis = millis() + tuning.manualActionDurationMs;
       }
     }
     request->send(200, "text/plain", "OK");
@@ -165,6 +183,55 @@ void setupWebServer() {
     doc["user"] = mqttConfig.user;
     doc["topicPrefix"] = mqttConfig.topicPrefix;
     doc["hasPassword"] = mqttConfig.password.length() > 0;
+
+    String response;
+    serializeJson(doc, response);
+    request->send(200, "application/json", response);
+  });
+
+  // Live motor/angle/timing tuning, persisted to LittleFS. Defaults live in
+  // config.h (DEFAULT_*) via TuningParams - see logic/tuning_params.h.
+  server.on("/tuning", HTTP_GET, [](AsyncWebServerRequest *request) {
+    if (request->hasParam("action") && request->getParam("action")->value() == "reset") {
+      resetTuning();
+    } else {
+      bool changed = false;
+      if (request->hasParam("movimientoMoveSpeed")) { tuning.movimientoMoveSpeed = request->getParam("movimientoMoveSpeed")->value().toFloat(); changed = true; }
+      if (request->hasParam("movimientoMoveBackwardsSpeed")) { tuning.movimientoMoveBackwardsSpeed = request->getParam("movimientoMoveBackwardsSpeed")->value().toFloat(); changed = true; }
+      if (request->hasParam("movimientoIdleSpeed")) { tuning.movimientoIdleSpeed = request->getParam("movimientoIdleSpeed")->value().toFloat(); changed = true; }
+      if (request->hasParam("aguaTurnSpeed")) { tuning.aguaTurnSpeed = request->getParam("aguaTurnSpeed")->value().toFloat(); changed = true; }
+      if (request->hasParam("aguaMoveSpeed")) { tuning.aguaMoveSpeed = request->getParam("aguaMoveSpeed")->value().toFloat(); changed = true; }
+      if (request->hasParam("aguaIdleSpeed")) { tuning.aguaIdleSpeed = request->getParam("aguaIdleSpeed")->value().toFloat(); changed = true; }
+      if (request->hasParam("wallAngleThreshold")) { tuning.wallAngleThreshold = request->getParam("wallAngleThreshold")->value().toFloat(); changed = true; }
+      if (request->hasParam("wallAngleRecoverThreshold")) { tuning.wallAngleRecoverThreshold = request->getParam("wallAngleRecoverThreshold")->value().toFloat(); changed = true; }
+      if (request->hasParam("floorInclinationPrecision")) { tuning.floorInclinationPrecision = request->getParam("floorInclinationPrecision")->value().toFloat(); changed = true; }
+      if (request->hasParam("turnAngleDeg")) { tuning.turnAngleDeg = request->getParam("turnAngleDeg")->value().toInt(); changed = true; }
+      if (request->hasParam("movingTimeoutMs")) { tuning.movingTimeoutMs = request->getParam("movingTimeoutMs")->value().toInt(); changed = true; }
+      if (request->hasParam("maxTimeTurningMs")) { tuning.maxTimeTurningMs = request->getParam("maxTimeTurningMs")->value().toInt(); changed = true; }
+      if (request->hasParam("delayAutostartMs")) { tuning.delayAutostartMs = request->getParam("delayAutostartMs")->value().toInt(); changed = true; }
+      if (request->hasParam("turnDurationMs")) { tuning.turnDurationMs = request->getParam("turnDurationMs")->value().toInt(); changed = true; }
+      if (request->hasParam("attitudeSmoothingAlpha")) { tuning.attitudeSmoothingAlpha = request->getParam("attitudeSmoothingAlpha")->value().toFloat(); changed = true; }
+      if (request->hasParam("manualActionDurationMs")) { tuning.manualActionDurationMs = request->getParam("manualActionDurationMs")->value().toInt(); changed = true; }
+      if (changed) saveTuning();
+    }
+
+    JsonDocument doc;
+    doc["movimientoMoveSpeed"] = tuning.movimientoMoveSpeed;
+    doc["movimientoMoveBackwardsSpeed"] = tuning.movimientoMoveBackwardsSpeed;
+    doc["movimientoIdleSpeed"] = tuning.movimientoIdleSpeed;
+    doc["aguaTurnSpeed"] = tuning.aguaTurnSpeed;
+    doc["aguaMoveSpeed"] = tuning.aguaMoveSpeed;
+    doc["aguaIdleSpeed"] = tuning.aguaIdleSpeed;
+    doc["wallAngleThreshold"] = tuning.wallAngleThreshold;
+    doc["wallAngleRecoverThreshold"] = tuning.wallAngleRecoverThreshold;
+    doc["floorInclinationPrecision"] = tuning.floorInclinationPrecision;
+    doc["turnAngleDeg"] = tuning.turnAngleDeg;
+    doc["movingTimeoutMs"] = tuning.movingTimeoutMs;
+    doc["maxTimeTurningMs"] = tuning.maxTimeTurningMs;
+    doc["delayAutostartMs"] = tuning.delayAutostartMs;
+    doc["turnDurationMs"] = tuning.turnDurationMs;
+    doc["attitudeSmoothingAlpha"] = tuning.attitudeSmoothingAlpha;
+    doc["manualActionDurationMs"] = tuning.manualActionDurationMs;
 
     String response;
     serializeJson(doc, response);
