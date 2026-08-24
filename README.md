@@ -23,19 +23,16 @@ This project documents the restoration and enhancement of a Dolphin Sprite pool 
 
 ### ESP32-S2 Mini Connections
 
-| Pin | Connection                | Function                        |
-|-----|---------------------------|---------------------------------|
-|  3  | MOVIMIENTO_RPWM_Output    | Movement motor RPWM (IBT-2 #1)  |
-|  2  | MOVIMIENTO_LPWM_Output    | Movement motor LPWM (IBT-2 #1)  |
-|  5  | MOVIMIENTO_R_ENABLE       | Movement motor R_EN (IBT-2 #1)  |
-|  4  | MOVIMIENTO_L_ENABLE       | Movement motor L_EN (IBT-2 #1)  |
-| 13  | AGUA_RPWM_Output          | Water motor RPWM (IBT-2 #2)     |
-| 12  | AGUA_LPWM_Output          | Water motor LPWM (IBT-2 #2)     |
-| 10  | AGUA_R_ENABLE             | Water motor R_EN (IBT-2 #2)     |
-| 11  | AGUA_L_ENABLE             | Water motor L_EN (IBT-2 #2)     |
-|  7  | SDA_PIN                   | I2C SDA (MPU9250/BMP280)        |
-|  6  | SCL_PIN                   | I2C SCL (MPU9250/BMP280)        |
-| LED_BUILTIN | LED               | Status indicator                |
+| Pin | Connection                | Function                                          |
+|-----|---------------------------|----------------------------------------------------|
+|  9  | MOVIMIENTO_RPWM_Output    | Movement motor RPWM (IBT-2)                       |
+| 11  | MOVIMIENTO_LPWM_Output    | Movement motor LPWM (IBT-2)                       |
+|  5  | AGUA_PWM_Output           | Water pump PWM (single direction, no RPWM/LPWM pair) |
+|  7  | SDA_PIN                   | I2C SDA (MPU9250/BMP280)                          |
+|  6  | SCL_PIN                   | I2C SCL (MPU9250/BMP280)                          |
+| LED_BUILTIN | LED               | Status indicator                                  |
+
+Movement motor's R_EN/L_EN are no longer wired to GPIO at all — see `MOTOR_HAS_ENABLE_PINS` in `src/config.h` and the note below. That freed GPIO5 (old R_EN), now reused for the water pump.
 
 ### MPU9250 (I2C Connection)
 - VCC: 3.3V (from voltage regulator, same rail as everything else)
@@ -43,15 +40,20 @@ This project documents the restoration and enhancement of a Dolphin Sprite pool 
 - SDA: GPIO7
 - SCL: GPIO6
 
-### IBT-2 H-Bridge Boards
+### IBT-2 H-Bridge Board (movement motor)
 - VCC: 3.3V (logic supply for the onboard SN74AHC244 buffer, same rail as ESP32/IMU)
 - VS (motor power terminal): main 30V supply, separate from VCC — not through the regulator
 - GND: Ground
-- R_EN and L_EN: Driven by ESP32 GPIO (see table above — pins 5/4 for movement, 10/11 for water)
-- RPWM: PWM input for forward direction (see table above)
-- LPWM: PWM input for reverse direction (see table above)
+- R_EN and L_EN: **tied directly to VCC on the board** — no GPIO, always enabled. Firmware never touches them (`MOTOR_HAS_ENABLE_PINS 0` in `src/config.h`); the reversal dead time in `src/logic/motor_direction_guard.h` is what keeps forward/reverse from overlapping instead.
+- RPWM: PWM input for forward direction, GPIO9 (see table above)
+- LPWM: PWM input for reverse direction, GPIO11 (see table above)
 
 > **Why VCC=3.3V, not 5V:** each IBT-2 board has an `SN74AHC244` line buffer between the header pins and the BTN7970/BTS7960 chips. Its VIH threshold is ratiometric to its own VCC pin (~3.5V min at VCC=5V per TI datasheet) — a 3.3V-logic GPIO (ESP32) doesn't reliably clear that, causing intermittent/flaky motor start. At VCC=3.3V the threshold drops to ~2.3V, which 3.3V GPIO clears comfortably. The BTN7970/BTS7960 chips themselves are fine with 3.3V logic (VIH max ~2.15V per Infineon datasheet) — the buffer was the bottleneck.
+
+### Water Pump (single direction)
+- VCC / driver supply: 3.3V, same rail
+- PWM: GPIO5 (see table above) — one pin only, no RPWM/LPWM pair, no enable pin
+- GND: Ground
 
 ### Power Supply
 - **Main supply:** 30V (robot's original battery) — feeds the IBT-2 VS (motor power) terminals directly

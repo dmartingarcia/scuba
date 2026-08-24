@@ -4,14 +4,22 @@
 
 bool Motor::init() {
     pinMode(rpwmPin, OUTPUT);
-    pinMode(lpwmPin, OUTPUT);
-    pinMode(rEnablePin, OUTPUT);
-    pinMode(lEnablePin, OUTPUT);
     speed = 0;
     analogWrite(rpwmPin, 0);
+
+    if (singleDirection) {
+        initialized = true;
+        return true;
+    }
+
+    pinMode(lpwmPin, OUTPUT);
     analogWrite(lpwmPin, 0);
-    digitalWrite(rEnablePin, LOW); // Enable right motor
-    digitalWrite(lEnablePin, LOW); // Enable left motor
+#if MOTOR_HAS_ENABLE_PINS
+    pinMode(rEnablePin, OUTPUT);
+    pinMode(lEnablePin, OUTPUT);
+    digitalWrite(rEnablePin, LOW); // Disable both sides until a direction is set
+    digitalWrite(lEnablePin, LOW);
+#endif
     initialized = true;
     return true;
 }
@@ -23,29 +31,40 @@ int Motor::checkSpeed(int speed) {
 void Motor::setSpeed(int newSpeed) {
     if (!initialized) return;
 
-    speed = checkSpeed(newSpeed);
+    if (singleDirection) {
+        int requested = checkSpeed(newSpeed);
+        speed = requested < 0 ? 0 : requested; // hardware only drives one direction
+        analogWrite(rpwmPin, speed);
+        return;
+    }
+
+    int requested = checkSpeed(newSpeed);
+    speed = directionGuard.apply(requested, millis());
 
     if (speed > 0) {
+#if MOTOR_HAS_ENABLE_PINS
+        digitalWrite(rEnablePin, HIGH); // Enable both sides - direction comes from RPWM/LPWM
+        digitalWrite(lEnablePin, HIGH);
+#endif
         // Forward rotation
-        digitalWrite(rEnablePin, HIGH); // Disable right motor
-        digitalWrite(lEnablePin, HIGH); // Disable left motor
-
         analogWrite(rpwmPin, abs(speed)); // Set PWM for forward rotation
         analogWrite(lpwmPin, 0);     // No PWM for reverse
     } else if (speed < 0) {
-        digitalWrite(rEnablePin, HIGH); // Disable right motor
-        digitalWrite(lEnablePin, HIGH); // Disable left motor
-
+#if MOTOR_HAS_ENABLE_PINS
+        digitalWrite(rEnablePin, HIGH);
+        digitalWrite(lEnablePin, HIGH);
+#endif
         // Reverse rotation
         analogWrite(rpwmPin, 0);         // No PWM for forward
         analogWrite(lpwmPin, abs(speed));    // Set PWM for reverse rotation
     } else {
-        // Stop
+        // Stop (or held at zero by directionGuard during a reversal's dead time)
         analogWrite(rpwmPin, 0);
         analogWrite(lpwmPin, 0);
-        digitalWrite(rEnablePin, LOW); // Disable right motor
-        digitalWrite(lEnablePin, LOW); // Disable left motor
-
+#if MOTOR_HAS_ENABLE_PINS
+        digitalWrite(rEnablePin, LOW);
+        digitalWrite(lEnablePin, LOW);
+#endif
     }
 }
 

@@ -2,16 +2,28 @@
 #define CONFIG_H
 
 // Pin definitions for the motors and sensors
-#define AGUA_RPWM_Output 13 // Arduino PWM output pin 5; connect to IBT-2 pin 1 (RPWM)
-#define AGUA_LPWM_Output 12 // Arduino PWM output pin 6; connect to IBT-2 pin 2 (LPWM)
-#define AGUA_R_ENABLE 10 // Not used in this example, but can be connected to Arduino pin 8 if needed
-#define AGUA_L_ENABLE 11 // Not used in this example, but can be connected to Arduino pin 7 if needed
-#define MOVIMIENTO_RPWM_Output 3 // Arduino PWM output pin 5; connect to IBT-2 pin 1 (RPWM)
-#define MOVIMIENTO_LPWM_Output 2 // Arduino PWM output pin 6; connect to IBT-2 pin 2 (LPWM)
-#define MOVIMIENTO_R_ENABLE 5 // Not used in this example, but can be connected to Arduino pin 8 if needed
-#define MOVIMIENTO_L_ENABLE 4 // Not used in this example, but can be connected to Arduino pin 7 if needed
+
+// Movement (drive) motor: IBT-2 H-bridge, RPWM/LPWM only. R_EN/L_EN are
+// physically tied to VCC on the board now, not wired to a GPIO - see
+// MOTOR_HAS_ENABLE_PINS below. This freed the old R_EN pin (GPIO5), now
+// reused below for the water pump.
+#define MOVIMIENTO_RPWM_Output 9
+#define MOVIMIENTO_LPWM_Output 11
+
+// Water pump: single PWM pin, one direction only - no RPWM/LPWM pair, no
+// enable pin (see the single-pin Motor constructor). GPIO5 was movimiento's
+// R_EN before the enable wiring was removed.
+#define AGUA_PWM_Output 5
+
+// Set to 0 once the IBT-2 R_EN/L_EN wiring is physically removed (tied
+// permanently to VCC on the board instead of a GPIO). When 1, Motor drives
+// R_EN/L_EN from GPIO on init/setSpeed; when 0, it never touches them, and
+// the reversal dead time in motor_direction_guard.h becomes the only thing
+// standing between a direction flip and shoot-through.
+#define MOTOR_HAS_ENABLE_PINS 0
+
 #define SDA_PIN 7
-#define SCL_PIN 6
+#define SCL_PIN 3
 
 // Task watchdog: if loop() (or a helper it calls) stops feeding this for
 // this many seconds - most likely an I2C lockup talking to the IMU/BMP280,
@@ -74,7 +86,14 @@ const float DEFAULT_ATTITUDE_SMOOTHING_ALPHA = 0.2; // EMA blend for UI pitch/ro
 const long DEFAULT_MANUAL_ACTION_DURATION_MS = 1500; // Manual forward/backward pulse length before auto-reverting
 
 const long TIME_TO_CONNECT_WIFI = 60000; // 60 seconds to connect to WiFi
-const int RETRIES_WIFI_CONNECT = 10; // Number of retries for WiFi connection
+
+// Retries * 500ms delay = total budget for the FIRST connect attempt in
+// setupWifi(). This matters a lot more right after an OTA flash than it
+// looks: if it runs out before the AP associates, the code treats it as a
+// bad new image and triggers an immediate OTA rollback to whatever was in
+// the other partition (see rollbackIfPendingVerify() in wifi_manager.cpp) -
+// 10 (5s) was too tight for a fresh post-reset association.
+const int RETRIES_WIFI_CONNECT = 40; // 20 seconds
 
 // Recovery access point, started whenever the home WiFi (WIFI_SSID in
 // secrets.h) can't be reached - keeps the robot reachable for OTA/control

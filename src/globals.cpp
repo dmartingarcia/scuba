@@ -2,8 +2,8 @@
 
 AsyncWebServer server(80);
 
-Motor motorMovimiento(MOVIMIENTO_RPWM_Output, MOVIMIENTO_LPWM_Output, MOVIMIENTO_R_ENABLE, MOVIMIENTO_L_ENABLE);
-Motor motorAgua(AGUA_RPWM_Output, AGUA_LPWM_Output, AGUA_R_ENABLE, AGUA_L_ENABLE);
+Motor motorMovimiento(MOVIMIENTO_RPWM_Output, MOVIMIENTO_LPWM_Output, 0, 0); // no enable pins - see MOTOR_HAS_ENABLE_PINS
+Motor motorAgua(AGUA_PWM_Output);
 Led led(LED_BUILTIN);
 Adafruit_BMP280 bmp;
 ImuSensor* imu = nullptr;

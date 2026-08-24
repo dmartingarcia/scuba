@@ -40,6 +40,21 @@ void setup() {
 
   Wire.begin(SDA_PIN, SCL_PIN);
 
+  // One-shot bus scan at boot so a wiring/pull-up problem shows up in
+  // /logs directly, instead of guessing address-by-address from symptoms.
+  logBuffer.println("I2C scan on SDA=" + String(SDA_PIN) + " SCL=" + String(SCL_PIN) + ":");
+  int devicesFound = 0;
+  for (uint8_t addr = 1; addr < 127; addr++) {
+    Wire.beginTransmission(addr);
+    if (Wire.endTransmission() == 0) {
+      logBuffer.println("  found 0x" + String(addr, HEX));
+      devicesFound++;
+    }
+  }
+  if (devicesFound == 0) {
+    logBuffer.println("  nothing responded - check wiring/pull-ups before anything else");
+  }
+
   if (bmp.begin(0x76)) {
     clearErrorCode(ErrorCode::BmpInitFailed);
   } else {
