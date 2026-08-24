@@ -8,6 +8,11 @@ void setupOta() {
     motorMovimiento.setSpeed(0);
     motorAgua.setSpeed(0);
     currentState = STOPPED; // Stop motors during OTA
+    logBuffer.setPaused(true); // avoid PSRAM access while flash writes are in flight (see log_buffer.h)
+  });
+
+  ArduinoOTA.onEnd([]() {
+    logBuffer.setPaused(false); // moot on success (device reboots into the new image); matters if onError fires instead
   });
 
   // ArduinoOTA.handle() blocks synchronously while it erases/writes each
@@ -20,6 +25,7 @@ void setupOta() {
   });
 
   ArduinoOTA.onError([](ota_error_t error) {
+    logBuffer.setPaused(false);
     Serial.printf("Error[%u]: ", error);
     if (error == OTA_AUTH_ERROR) {
       logBuffer.println("Auth Failed");

@@ -34,8 +34,14 @@ public:
         Serial.println(msg);
     }
 
+    // Silences add()/print()/println() without losing anything already
+    // buffered - see ota_manager.cpp. PSRAM access concurrent with a flash
+    // write (Update.write() during OTA) is a known ESP32-S2 crash source;
+    // this keeps the frequent heartbeat/error logging quiet for that window.
+    void setPaused(bool p) { paused = p; }
+
     void add(const String& msg) {
-        if (!buffer || maxLength == 0) return;
+        if (!buffer || maxLength == 0 || paused) return;
 
         size_t msgLen = msg.length();
         if (msgLen > maxLength) {
@@ -81,6 +87,7 @@ private:
     size_t maxLength;
     size_t trimLength;
     size_t length;
+    bool paused = false;
 };
 
 #endif // LOGBUFFER_H
