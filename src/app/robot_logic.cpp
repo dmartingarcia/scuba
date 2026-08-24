@@ -185,7 +185,7 @@ void robotLogic() {
       // Movement-motor ramp test (/maintenance?action=rampMovimientoForward|
       // rampMovimientoBackward): drives 0->255 (or 0->-255) over
       // MAINTENANCE_RAMP_DURATION_MS entirely within this case.
-      bool movimientoRampRunning = false;
+      bool movimientoTestRunning = false;
       if (movimientoRampActive) {
         unsigned long elapsed = millis() - movimientoRampStartMillis;
         if (elapsed >= MAINTENANCE_RAMP_DURATION_MS) {
@@ -194,8 +194,14 @@ void robotLogic() {
           logBuffer.println("movimiento ramp test done");
         } else {
           motorMovimiento.setSpeed(movimientoRampDirection * (int)(elapsed * 255 / MAINTENANCE_RAMP_DURATION_MS));
-          movimientoRampRunning = true;
+          movimientoTestRunning = true;
         }
+      } else if (movimientoRunActive) {
+        // Run test (/maintenance?action=runMovimientoForward|Backward): same
+        // idea as the ramp above but held at a constant MAINTENANCE_TEST_SPEED
+        // until ?action=stopMotorTest - see MotorTest handling in web_server.cpp.
+        motorMovimiento.setSpeed(movimientoRunDirection * MAINTENANCE_TEST_SPEED);
+        movimientoTestRunning = true;
       } else {
         motorMovimiento.setSpeed(0);
       }
@@ -212,11 +218,15 @@ void robotLogic() {
         } else {
           motorAgua.setSpeed((int)(elapsed * 255 / MAINTENANCE_RAMP_DURATION_MS));
         }
-      } else if (movimientoRampRunning) {
+      } else if (aguaRunActive) {
+        // Run test (/maintenance?action=runAgua): constant speed until
+        // ?action=stopMotorTest.
+        motorAgua.setSpeed(MAINTENANCE_TEST_SPEED);
+      } else if (movimientoTestRunning) {
         // The movement motor has never been driven alone anywhere else in
         // this codebase - MOVING_FORWARD/MOVING_BACKWARD always run
         // motorAgua alongside it - and doesn't turn on its own. Match that
-        // here so the forward/backward ramp test actually moves the robot.
+        // here so the forward/backward ramp/run test actually moves the robot.
         motorAgua.setSpeed(tuning.aguaMoveSpeed);
       } else {
         motorAgua.setSpeed(0);

@@ -67,6 +67,14 @@ extern bool movimientoRampActive;
 extern unsigned long movimientoRampStartMillis;
 extern int movimientoRampDirection; // +1 forward, -1 backward
 
+// Motor run tests (/maintenance?action=runAgua|runMovimientoForward|
+// runMovimientoBackward|stopMotorTest): same MAINTENANCE-only gate as the
+// ramp tests above, but drives at a constant MAINTENANCE_TEST_SPEED (config.h)
+// instead of sweeping - for a quick "does it spin the right way" check.
+extern bool aguaRunActive;
+extern bool movimientoRunActive;
+extern int movimientoRunDirection; // +1 forward, -1 backward
+
 // Deferred reboot (/maintenance?action=reboot|factoryReset): set from the web
 // handler and acted on in loop(), so the HTTP response has time to flush
 // before ESP.restart() drops the connection.

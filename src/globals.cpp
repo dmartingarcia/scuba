@@ -37,6 +37,10 @@ bool movimientoRampActive = false;
 unsigned long movimientoRampStartMillis = 0;
 int movimientoRampDirection = 1;
 
+bool aguaRunActive = false;
+bool movimientoRunActive = false;
+int movimientoRunDirection = 1;
+
 bool rebootRequested = false;
 unsigned long rebootAtMillis = 0;
 

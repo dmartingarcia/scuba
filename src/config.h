@@ -94,6 +94,11 @@ const long DEFAULT_MANUAL_ACTION_DURATION_MS = 2000; // Manual forward/backward 
 // -255) over this long, only while parked in MAINTENANCE.
 const unsigned long MAINTENANCE_RAMP_DURATION_MS = 10000;
 
+// Maintenance run tests (/maintenance?action=runAgua|runMovimientoForward|
+// runMovimientoBackward): constant speed instead of a sweep, for a quick
+// "does it spin, and which way" check. Runs until ?action=stopMotorTest.
+const int MAINTENANCE_TEST_SPEED = 150;
+
 // Calibrated accel X reads ~-1 resting normally, ~+1 flipped onto its back
 // (see the readings logged in sensors.cpp) - a threshold well above what
 // normal operation (wall climbs, turns) ever reaches on that axis.

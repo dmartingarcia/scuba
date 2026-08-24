@@ -419,13 +419,22 @@
       <div class="row"><span class="label">Firmware</span><span class="value" id="firmwareCommit">-</span></div>
       <div class="row"><span class="label">Boots</span><span class="value" id="bootCount">-</span></div>
       <div class="row"><span class="label">Total runtime</span><span class="value" id="totalRuntime">-</span></div>
-      <p class="empty-hint">Motor ramp tests only run while flipped into Maintenance state.</p>
+      <p class="empty-hint">Motor ramp/run tests only run while flipped into Maintenance state.</p>
       <div class="btn-row">
         <button onclick="maintenanceAction('rampAgua')">Ramp water motor</button>
       </div>
       <div class="btn-row">
         <button onclick="maintenanceAction('rampMovimientoForward')">Ramp forward</button>
         <button onclick="maintenanceAction('rampMovimientoBackward')">Ramp backward</button>
+      </div>
+      <p class="empty-hint">Constant-speed run - stays on until Stop motors.</p>
+      <div class="btn-row">
+        <button onclick="maintenanceAction('runAgua')">Move water</button>
+        <button onclick="maintenanceAction('runMovimientoForward')">Move forward</button>
+        <button onclick="maintenanceAction('runMovimientoBackward')">Move backward</button>
+      </div>
+      <div class="btn-row">
+        <button class="danger" onclick="maintenanceAction('stopMotorTest')">Stop motors</button>
       </div>
       <div class="btn-row">
         <button class="danger" onclick="maintenanceAction('resetStats')">Reset stats</button>

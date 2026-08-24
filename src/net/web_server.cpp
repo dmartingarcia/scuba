@@ -277,6 +277,10 @@ void setupWebServer() {
   //                           (all three over MAINTENANCE_RAMP_DURATION_MS;
   //                           only while flipped into MAINTENANCE - see
   //                           robotLogic()'s MAINTENANCE case)
+  //   ?action=runAgua                 - water motor at a constant MAINTENANCE_TEST_SPEED
+  //   ?action=runMovimientoForward    - movement motor forward, constant speed
+  //   ?action=runMovimientoBackward   - movement motor backward, constant speed
+  //   ?action=stopMotorTest           - stop any ramp/run test in progress
   server.on("/maintenance", HTTP_GET, [](AsyncWebServerRequest *request) {
     String action = request->hasParam("action") ? request->getParam("action")->value() : "";
 
@@ -297,7 +301,9 @@ void setupWebServer() {
 
     if (action == "resetStats") {
       resetMaintenanceStats();
-    } else if (action == "rampAgua" || action == "rampMovimientoForward" || action == "rampMovimientoBackward") {
+    } else if (action == "rampAgua" || action == "rampMovimientoForward" || action == "rampMovimientoBackward"
+            || action == "runAgua" || action == "runMovimientoForward" || action == "runMovimientoBackward"
+            || action == "stopMotorTest") {
       if (currentState != MAINTENANCE) {
         request->send(409, "text/plain", "Flip the robot into MAINTENANCE first");
         return;
@@ -305,10 +311,20 @@ void setupWebServer() {
       if (action == "rampAgua") {
         aguaRampActive = true;
         aguaRampStartMillis = millis();
-      } else {
+      } else if (action == "rampMovimientoForward" || action == "rampMovimientoBackward") {
         movimientoRampActive = true;
         movimientoRampStartMillis = millis();
         movimientoRampDirection = action == "rampMovimientoForward" ? 1 : -1;
+      } else if (action == "runAgua") {
+        aguaRunActive = true;
+      } else if (action == "runMovimientoForward" || action == "runMovimientoBackward") {
+        movimientoRunActive = true;
+        movimientoRunDirection = action == "runMovimientoForward" ? 1 : -1;
+      } else { // stopMotorTest
+        aguaRampActive = false;
+        movimientoRampActive = false;
+        aguaRunActive = false;
+        movimientoRunActive = false;
       }
     }
 
