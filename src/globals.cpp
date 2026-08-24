@@ -31,6 +31,15 @@ bool manualControlActive = false;
 long manualActionDeadlineMillis = 0;
 RobotState manualRevertState = STOPPED;
 
+bool aguaRampActive = false;
+unsigned long aguaRampStartMillis = 0;
+bool movimientoRampActive = false;
+unsigned long movimientoRampStartMillis = 0;
+int movimientoRampDirection = 1;
+
+bool rebootRequested = false;
+unsigned long rebootAtMillis = 0;
+
 float aX, aY, aZ, aSqrt, gX, gY, gZ, temp, pressure;
 float yaw = 0;
 unsigned long lastYawUpdate = 0;

@@ -37,6 +37,14 @@ static void turnToDirection(int targetDegrees) {
     logError(ErrorCode::TurnTimeout);
   }
 
+  if (currentState == STOPPED || currentState == MAINTENANCE) {
+    // A stop was pressed (or the robot got flipped) while this blocking turn
+    // was in progress - honor it instead of clobbering it with the resume
+    // logic below, which would otherwise silently overrule the stop and keep
+    // the robot moving.
+    return;
+  }
+
   if (previousState == MOVING_FORWARD) {
     currentState = MOVING_BACKWARD; // Autonomous wall-avoidance: reverse away from it
   } else if (previousState == MOVING_BACKWARD) {
@@ -67,7 +75,29 @@ void robotLogic() {
 
   if (nextTimeLogUpdate <= (long)millis()) { // Heartbeat status line - kept short, buffer is all we have once submerged
     nextTimeLogUpdate += 5000; // Run every 5 seconds
-    logBuffer.println(String(millis()) + " a" + String(angle()) + " y" + String((int)yaw) + " " + resolveState(currentState));
+    // Free heap/PSRAM ride along here so LOG_BUFFER_SIZE (config.h) can be
+    // tuned from real numbers instead of guessing.
+    logBuffer.println(String(millis()) + " a" + String(angle()) + " y" + String((int)yaw) + " " + resolveState(currentState) +
+                       " h" + String(ESP.getFreeHeap()) + " p" + String(ESP.getFreePsram()));
+  }
+
+  // Flipped onto its back: force MAINTENANCE ahead of everything else below.
+  // Terminal like STOPPED - only /control?action=start or a physical reboot
+  // leaves it (enforced in web_server.cpp), never automatically here.
+  // Skipped entirely while STOPPED - a manual stop means "hold here", and
+  // motors are already off in that state, so there's nothing unsafe about
+  // ignoring the angle too (see /control?action=stop in web_server.cpp).
+  if (currentState != STOPPED) {
+    if (isUpsideDown()) {
+      logError(ErrorCode::UpsideDown);
+      if (currentState != MAINTENANCE) {
+        currentState = MAINTENANCE;
+        manualControlActive = false;
+        logBuffer.println("upside down -> maintenance");
+      }
+    } else {
+      clearErrorCode(ErrorCode::UpsideDown);
+    }
   }
 
   // Manual forward/backward pulse (/control?action=forward|backward): one
@@ -80,7 +110,7 @@ void robotLogic() {
     logBuffer.println("manual pulse done -> " + resolveState(currentState));
   }
 
-  if (!manualControlActive && (millis() - timeout) > tuning.movingTimeoutMs && currentState != STOPPED) { // Set timeout for movement if not stopped
+  if (!manualControlActive && (millis() - timeout) > tuning.movingTimeoutMs && currentState != STOPPED && currentState != MAINTENANCE) { // Set timeout for movement if not stopped
     if (currentState == MOVING_FORWARD) {
       currentState = MOVING_BACKWARD;
     } else {
@@ -90,7 +120,7 @@ void robotLogic() {
     logBuffer.println("timeout -> " + resolveState(currentState));
   }
 
-  if (!manualControlActive && currentState != STOPPED && isSessionTimeUp(millis(), sessionStartMillis, sessionDurationMs)) {
+  if (!manualControlActive && currentState != STOPPED && currentState != MAINTENANCE && isSessionTimeUp(millis(), sessionStartMillis, sessionDurationMs)) {
     logBuffer.println("session done, stopping");
     currentState = STOPPED;
     sessionCompletedByTimer = true;
@@ -147,5 +177,51 @@ void robotLogic() {
       motorMovimiento.setSpeed(0);
       motorAgua.setSpeed(0);
       break;
+
+    case MAINTENANCE: {
+      // Terminal state: only /control?action=start leaves MAINTENANCE (see
+      // web_server.cpp) - staying upright again on its own doesn't resume.
+
+      // Movement-motor ramp test (/maintenance?action=rampMovimientoForward|
+      // rampMovimientoBackward): drives 0->255 (or 0->-255) over
+      // MAINTENANCE_RAMP_DURATION_MS entirely within this case.
+      bool movimientoRampRunning = false;
+      if (movimientoRampActive) {
+        unsigned long elapsed = millis() - movimientoRampStartMillis;
+        if (elapsed >= MAINTENANCE_RAMP_DURATION_MS) {
+          movimientoRampActive = false;
+          motorMovimiento.setSpeed(0);
+          logBuffer.println("movimiento ramp test done");
+        } else {
+          motorMovimiento.setSpeed(movimientoRampDirection * (int)(elapsed * 255 / MAINTENANCE_RAMP_DURATION_MS));
+          movimientoRampRunning = true;
+        }
+      } else {
+        motorMovimiento.setSpeed(0);
+      }
+
+      // Water-motor ramp test (/maintenance?action=rampAgua): drives 0->255
+      // over MAINTENANCE_RAMP_DURATION_MS entirely within this case -
+      // currentState never leaves MAINTENANCE for it.
+      if (aguaRampActive) {
+        unsigned long elapsed = millis() - aguaRampStartMillis;
+        if (elapsed >= MAINTENANCE_RAMP_DURATION_MS) {
+          aguaRampActive = false;
+          motorAgua.setSpeed(0);
+          logBuffer.println("agua ramp test done");
+        } else {
+          motorAgua.setSpeed((int)(elapsed * 255 / MAINTENANCE_RAMP_DURATION_MS));
+        }
+      } else if (movimientoRampRunning) {
+        // The movement motor has never been driven alone anywhere else in
+        // this codebase - MOVING_FORWARD/MOVING_BACKWARD always run
+        // motorAgua alongside it - and doesn't turn on its own. Match that
+        // here so the forward/backward ramp test actually moves the robot.
+        motorAgua.setSpeed(tuning.aguaMoveSpeed);
+      } else {
+        motorAgua.setSpeed(0);
+      }
+      break;
+    }
   }
 }

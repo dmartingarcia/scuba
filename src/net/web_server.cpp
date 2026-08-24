@@ -6,6 +6,7 @@
 #include "../app/accel_calibration_store.h"
 #include "../app/mqtt_config_store.h"
 #include "../app/tuning_store.h"
+#include "../app/maintenance.h"
 #include "../index.h" // HTML content for the web interface
 
 void setupWebServer() {
@@ -24,6 +25,15 @@ void setupWebServer() {
     String action;
     if (request->hasParam("action")) {
       action = request->getParam("action")->value();
+
+      // MAINTENANCE (flipped over, see isUpsideDown() in sensors.cpp) is
+      // terminal like STOPPED, but stricter: only "start" leaves it -
+      // stop/forward/backward/turn are no-ops until you either press Start
+      // or physically reboot the robot.
+      if (currentState == MAINTENANCE && action != "start") {
+        request->send(200, "text/plain", "OK");
+        return;
+      }
 
       if (action == "start") {
         // Optional ?duration=<minutes> sets/resets how long this run should
@@ -56,6 +66,15 @@ void setupWebServer() {
         currentState = action == "forward" ? MOVING_FORWARD : MOVING_BACKWARD;
         manualControlActive = true;
         manualActionDeadlineMillis = millis() + tuning.manualActionDurationMs;
+      } else if (action == "maintenance") {
+        // Manual entry into MAINTENANCE (normally only reached via
+        // isUpsideDown() in robotLogic()) - lets /maintenance actions like
+        // rampAgua run without having to physically flip the robot. Same
+        // exit path as the automatic case: only action=start leaves it.
+        motorMovimiento.setSpeed(0);
+        motorAgua.setSpeed(0);
+        manualControlActive = false;
+        currentState = MAINTENANCE;
       }
     }
     request->send(200, "text/plain", "OK");
@@ -87,6 +106,7 @@ void setupWebServer() {
   server.on("/status", HTTP_GET, [](AsyncWebServerRequest *request) {
     JsonDocument doc;
     doc["state"] = resolveState(currentState);
+    doc["firmwareCommit"] = FIRMWARE_COMMIT;
     doc["angle"] = angle();
     doc["yaw"] = yaw;
     doc["x"] = currentX;
@@ -206,12 +226,18 @@ void setupWebServer() {
       if (request->hasParam("wallAngleRecoverThreshold")) { tuning.wallAngleRecoverThreshold = request->getParam("wallAngleRecoverThreshold")->value().toFloat(); changed = true; }
       if (request->hasParam("floorInclinationPrecision")) { tuning.floorInclinationPrecision = request->getParam("floorInclinationPrecision")->value().toFloat(); changed = true; }
       if (request->hasParam("turnAngleDeg")) { tuning.turnAngleDeg = request->getParam("turnAngleDeg")->value().toInt(); changed = true; }
+      if (request->hasParam("upsideDownThreshold")) { tuning.upsideDownThreshold = request->getParam("upsideDownThreshold")->value().toFloat(); changed = true; }
       if (request->hasParam("movingTimeoutMs")) { tuning.movingTimeoutMs = request->getParam("movingTimeoutMs")->value().toInt(); changed = true; }
       if (request->hasParam("maxTimeTurningMs")) { tuning.maxTimeTurningMs = request->getParam("maxTimeTurningMs")->value().toInt(); changed = true; }
       if (request->hasParam("delayAutostartMs")) { tuning.delayAutostartMs = request->getParam("delayAutostartMs")->value().toInt(); changed = true; }
       if (request->hasParam("turnDurationMs")) { tuning.turnDurationMs = request->getParam("turnDurationMs")->value().toInt(); changed = true; }
       if (request->hasParam("attitudeSmoothingAlpha")) { tuning.attitudeSmoothingAlpha = request->getParam("attitudeSmoothingAlpha")->value().toFloat(); changed = true; }
       if (request->hasParam("manualActionDurationMs")) { tuning.manualActionDurationMs = request->getParam("manualActionDurationMs")->value().toInt(); changed = true; }
+      if (request->hasParam("aguaDisabledFake")) {
+        tuning.aguaDisabledFake = request->getParam("aguaDisabledFake")->value() == "1";
+        motorAgua.setFakeDisabled(tuning.aguaDisabledFake);
+        changed = true;
+      }
       if (changed) saveTuning();
     }
 
@@ -226,16 +252,67 @@ void setupWebServer() {
     doc["wallAngleRecoverThreshold"] = tuning.wallAngleRecoverThreshold;
     doc["floorInclinationPrecision"] = tuning.floorInclinationPrecision;
     doc["turnAngleDeg"] = tuning.turnAngleDeg;
+    doc["upsideDownThreshold"] = tuning.upsideDownThreshold;
     doc["movingTimeoutMs"] = tuning.movingTimeoutMs;
     doc["maxTimeTurningMs"] = tuning.maxTimeTurningMs;
     doc["delayAutostartMs"] = tuning.delayAutostartMs;
     doc["turnDurationMs"] = tuning.turnDurationMs;
     doc["attitudeSmoothingAlpha"] = tuning.attitudeSmoothingAlpha;
     doc["manualActionDurationMs"] = tuning.manualActionDurationMs;
+    doc["aguaDisabledFake"] = tuning.aguaDisabledFake;
 
     String response;
     serializeJson(doc, response);
     request->send(200, "application/json", response);
+  });
+
+  // Maintenance actions, from the Maintenance card in the web UI:
+  //   ?action=reboot        - restart the ESP32
+  //   ?action=resetStats    - zero bootCount/totalRuntimeSeconds
+  //   ?action=factoryReset  - wipe MQTT/tuning/calibration/fault-log config
+  //                           and stats back to defaults, then reboot
+  //   ?action=rampAgua                - ramp the water motor 0->255
+  //   ?action=rampMovimientoForward   - ramp the movement motor 0->255
+  //   ?action=rampMovimientoBackward  - ramp the movement motor 0->-255
+  //                           (all three over MAINTENANCE_RAMP_DURATION_MS;
+  //                           only while flipped into MAINTENANCE - see
+  //                           robotLogic()'s MAINTENANCE case)
+  server.on("/maintenance", HTTP_GET, [](AsyncWebServerRequest *request) {
+    String action = request->hasParam("action") ? request->getParam("action")->value() : "";
+
+    if (action == "reboot" || action == "factoryReset") {
+      if (action == "factoryReset") {
+        resetMqttConfig();
+        resetTuning();
+        clearAccelCalibration();
+        clearAllErrors();
+        resetMaintenanceStats();
+      }
+      request->send(200, "text/plain", "OK");
+      // Deferred so this response has time to flush before the connection drops.
+      rebootRequested = true;
+      rebootAtMillis = millis() + 500;
+      return;
+    }
+
+    if (action == "resetStats") {
+      resetMaintenanceStats();
+    } else if (action == "rampAgua" || action == "rampMovimientoForward" || action == "rampMovimientoBackward") {
+      if (currentState != MAINTENANCE) {
+        request->send(409, "text/plain", "Flip the robot into MAINTENANCE first");
+        return;
+      }
+      if (action == "rampAgua") {
+        aguaRampActive = true;
+        aguaRampStartMillis = millis();
+      } else {
+        movimientoRampActive = true;
+        movimientoRampStartMillis = millis();
+        movimientoRampDirection = action == "rampMovimientoForward" ? 1 : -1;
+      }
+    }
+
+    request->send(200, "text/plain", "OK");
   });
 
   server.begin();

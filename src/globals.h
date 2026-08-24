@@ -57,6 +57,22 @@ extern bool manualControlActive;
 extern long manualActionDeadlineMillis;
 extern RobotState manualRevertState;
 
+// Motor ramp tests (/maintenance?action=rampAgua|rampMovimientoForward|
+// rampMovimientoBackward): only run while currentState is MAINTENANCE,
+// driven entirely within that case in robotLogic() - see
+// MAINTENANCE_RAMP_DURATION_MS in config.h.
+extern bool aguaRampActive;
+extern unsigned long aguaRampStartMillis;
+extern bool movimientoRampActive;
+extern unsigned long movimientoRampStartMillis;
+extern int movimientoRampDirection; // +1 forward, -1 backward
+
+// Deferred reboot (/maintenance?action=reboot|factoryReset): set from the web
+// handler and acted on in loop(), so the HTTP response has time to flush
+// before ESP.restart() drops the connection.
+extern bool rebootRequested;
+extern unsigned long rebootAtMillis;
+
 extern float aX, aY, aZ, aSqrt, gX, gY, gZ, temp, pressure;
 extern float yaw;
 extern unsigned long lastYawUpdate;

@@ -10,22 +10,30 @@ public:
     // Bidirectional H-bridge motor (e.g. IBT-2): RPWM/LPWM pick direction,
     // R_EN/L_EN optionally gate the outputs (see MOTOR_HAS_ENABLE_PINS).
     Motor(uint8_t rpwmPin, uint8_t lpwmPin, uint8_t rEnablePin, uint8_t lEnablePin)
-        : initialized(false), speed(0), rpwmPin(rpwmPin), lpwmPin(lpwmPin),
+        : initialized(false), speed(0), fakeDisabled(false), rpwmPin(rpwmPin), lpwmPin(lpwmPin),
           rEnablePin(rEnablePin), lEnablePin(lEnablePin), singleDirection(false) {};
 
     // Single-direction motor driven by one PWM pin (e.g. the water pump) -
     // no reverse, no enable pins, negative speed requests are floored at 0.
     explicit Motor(uint8_t pwmPin)
-        : initialized(false), speed(0), rpwmPin(pwmPin), lpwmPin(0),
+        : initialized(false), speed(0), fakeDisabled(false), rpwmPin(pwmPin), lpwmPin(0),
           rEnablePin(0), lEnablePin(0), singleDirection(true) {};
 
     bool init();
     void setSpeed(int newSpeed);
     int getSpeed() const;
 
+    // Diagnostic override: while true, setSpeed() still tracks the
+    // requested speed (getSpeed() and every caller's own logging keep
+    // reporting as normal) but never touches the physical pins - lets a
+    // motor be tested "as if" running without actually powering it.
+    void setFakeDisabled(bool disabled);
+    bool isFakeDisabled() const;
+
 private:
     bool initialized;
     int speed;
+    bool fakeDisabled;
     uint8_t rpwmPin;
     uint8_t lpwmPin;
     uint8_t rEnablePin;

@@ -3,5 +3,6 @@
 
 void maintenanceInit(); // Call once from setup(): loads stats, records this boot
 void maintenanceTick(); // Call every loop(): accumulates active runtime, persists per shouldCommitStats()
+void resetMaintenanceStats(); // Zero bootCount/totalRuntimeSeconds, persist immediately
 
 #endif // MAINTENANCE_H

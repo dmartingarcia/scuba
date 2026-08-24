@@ -19,12 +19,14 @@ void saveTuning() {
   doc["wallAngleRecoverThreshold"] = tuning.wallAngleRecoverThreshold;
   doc["floorInclinationPrecision"] = tuning.floorInclinationPrecision;
   doc["turnAngleDeg"] = tuning.turnAngleDeg;
+  doc["upsideDownThreshold"] = tuning.upsideDownThreshold;
   doc["movingTimeoutMs"] = tuning.movingTimeoutMs;
   doc["maxTimeTurningMs"] = tuning.maxTimeTurningMs;
   doc["delayAutostartMs"] = tuning.delayAutostartMs;
   doc["turnDurationMs"] = tuning.turnDurationMs;
   doc["attitudeSmoothingAlpha"] = tuning.attitudeSmoothingAlpha;
   doc["manualActionDurationMs"] = tuning.manualActionDurationMs;
+  doc["aguaDisabledFake"] = tuning.aguaDisabledFake;
   serializeJson(doc, f);
   f.close();
 }
@@ -53,16 +55,19 @@ void tuningInit() {
   tuning.wallAngleRecoverThreshold = doc["wallAngleRecoverThreshold"] | d.wallAngleRecoverThreshold;
   tuning.floorInclinationPrecision = doc["floorInclinationPrecision"] | d.floorInclinationPrecision;
   tuning.turnAngleDeg = doc["turnAngleDeg"] | d.turnAngleDeg;
+  tuning.upsideDownThreshold = doc["upsideDownThreshold"] | d.upsideDownThreshold;
   tuning.movingTimeoutMs = doc["movingTimeoutMs"] | d.movingTimeoutMs;
   tuning.maxTimeTurningMs = doc["maxTimeTurningMs"] | d.maxTimeTurningMs;
   tuning.delayAutostartMs = doc["delayAutostartMs"] | d.delayAutostartMs;
   tuning.turnDurationMs = doc["turnDurationMs"] | d.turnDurationMs;
   tuning.attitudeSmoothingAlpha = doc["attitudeSmoothingAlpha"] | d.attitudeSmoothingAlpha;
   tuning.manualActionDurationMs = doc["manualActionDurationMs"] | d.manualActionDurationMs;
+  tuning.aguaDisabledFake = doc["aguaDisabledFake"] | d.aguaDisabledFake;
 }
 
 void resetTuning() {
   tuning = defaultTuningParams();
+  motorAgua.setFakeDisabled(tuning.aguaDisabledFake);
   saveTuning();
   logBuffer.println("Tuning params reset to defaults");
 }

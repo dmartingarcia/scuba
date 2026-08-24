@@ -1,6 +1,10 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#ifndef FIRMWARE_COMMIT
+#define FIRMWARE_COMMIT "unknown" // Set by get_git_version.py at build time
+#endif
+
 // Pin definitions for the motors and sensors
 
 // Movement (drive) motor: IBT-2 H-bridge, RPWM/LPWM only. R_EN/L_EN are
@@ -83,7 +87,17 @@ const float DEFAULT_AGUA_TURN_SPEED = 256;
 const float DEFAULT_AGUA_MOVE_SPEED = 245;
 const float DEFAULT_AGUA_IDLE_SPEED = 180; // Speed when not moving
 const float DEFAULT_ATTITUDE_SMOOTHING_ALPHA = 0.2; // EMA blend for UI pitch/roll display
-const long DEFAULT_MANUAL_ACTION_DURATION_MS = 1500; // Manual forward/backward pulse length before auto-reverting
+const long DEFAULT_MANUAL_ACTION_DURATION_MS = 2000; // Manual forward/backward pulse length before auto-reverting
+
+// Maintenance tests (/maintenance?action=rampAgua|rampMovimientoForward|
+// rampMovimientoBackward): ramps a motor linearly from 0 to 255 (or 0 to
+// -255) over this long, only while parked in MAINTENANCE.
+const unsigned long MAINTENANCE_RAMP_DURATION_MS = 10000;
+
+// Calibrated accel X reads ~-1 resting normally, ~+1 flipped onto its back
+// (see the readings logged in sensors.cpp) - a threshold well above what
+// normal operation (wall climbs, turns) ever reaches on that axis.
+const float DEFAULT_UPSIDE_DOWN_THRESHOLD = 0.6;
 
 const long TIME_TO_CONNECT_WIFI = 60000; // 60 seconds to connect to WiFi
 
@@ -101,7 +115,14 @@ const int RETRIES_WIFI_CONNECT = 40; // 20 seconds
 #define AP_FALLBACK_SSID "ScubaRobot-Recovery"
 #define AP_FALLBACK_PASSWORD "scuba1234"
 
-const size_t LOG_BUFFER_SIZE = 30000; // Maximum log buffer size
-const size_t LOG_BUFFER_TRIM_SIZE = 29800; // Size to trim the log
+// Lives in PSRAM (2MB available, otherwise unused by this app) so it can be
+// this large without competing with WiFi/AsyncWebServer for internal SRAM -
+// the whole point is to survive as much of a submerged, unreachable run as
+// possible for later review over /logs. Falls back to a much smaller
+// internal-heap buffer if PSRAM isn't available (see log_buffer.h).
+const size_t LOG_BUFFER_SIZE = 512000; // Maximum log buffer size (PSRAM)
+const size_t LOG_BUFFER_TRIM_SIZE = 500000; // Size to trim the log down to
+const size_t LOG_BUFFER_FALLBACK_SIZE = 30000; // Used if PSRAM allocation fails
+const size_t LOG_BUFFER_FALLBACK_TRIM_SIZE = 29800;
 
 #endif // CONFIG_H

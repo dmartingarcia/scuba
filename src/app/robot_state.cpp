@@ -7,6 +7,7 @@ String resolveState(RobotState state) {
     case TURNING: return "TURNING";
     case STOPPED: return "STOPPED";
     case STARTING: return "STARTING";
+    case MAINTENANCE: return "MAINTENANCE";
     default: return "UNKNOWN";
   }
 }

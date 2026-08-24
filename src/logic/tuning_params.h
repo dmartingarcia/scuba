@@ -19,6 +19,7 @@ struct TuningParams {
     float wallAngleRecoverThreshold = DEFAULT_WALL_ANGLE_RECOVER_THRESHOLD;
     float floorInclinationPrecision = DEFAULT_FLOOR_INCLINATION_PRECISION;
     int turnAngleDeg = DEFAULT_TURN_ANGLE;
+    float upsideDownThreshold = DEFAULT_UPSIDE_DOWN_THRESHOLD;
 
     long movingTimeoutMs = DEFAULT_MOVING_TIMEOUT;
     long maxTimeTurningMs = DEFAULT_MAX_TIME_TURNING;
@@ -27,6 +28,11 @@ struct TuningParams {
     long manualActionDurationMs = DEFAULT_MANUAL_ACTION_DURATION_MS;
 
     float attitudeSmoothingAlpha = DEFAULT_ATTITUDE_SMOOTHING_ALPHA;
+
+    // Diagnostic override: when true, motorAgua.setSpeed() calls are tracked
+    // (getSpeed(), logs, /status all keep reporting as normal) but never
+    // actually reach the physical pins - see Motor::setFakeDisabled().
+    bool aguaDisabledFake = false;
 };
 
 inline TuningParams defaultTuningParams() {

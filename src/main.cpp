@@ -2,6 +2,7 @@
 #include <Wire.h>
 #include <ArduinoOTA.h>
 #include <esp_task_wdt.h>
+#include <esp_ota_ops.h>
 #include "config.h"
 #include "globals.h"
 #include "app/sensors.h"
@@ -20,16 +21,34 @@
 
 // Defers the ESP-IDF bootloader's OTA self-validation instead of letting it
 // auto-confirm the new image before setup() even runs (its default weak
-// implementation just returns true unconditionally). setupWifi() is what
-// actually calls esp_ota_mark_app_valid_cancel_rollback()/
-// esp_ota_mark_app_invalid_rollback_and_reboot() once it knows whether the
-// new firmware can reach WiFi at all.
+// implementation just returns true unconditionally, which is what let a bad
+// OTA image get permanently confirmed with zero chance of a fallback). With
+// this override, the image stays in ESP_OTA_IMG_PENDING_VERIFY until setup()
+// explicitly confirms it at the very end (see esp_ota_mark_app_valid_cancel_
+// rollback() below) - if the chip never gets there (crash/hang anywhere in
+// setup(), caught by the watchdog below), the next boot attempt still finds
+// it PENDING_VERIFY and the bootloader itself marks it ABORTED and falls
+// back to the previous working image (CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE,
+// confirmed on in this SDK build) - no app code needs to run for that.
+// setupWifi() (wifi_manager.cpp) additionally calls
+// esp_ota_mark_app_invalid_rollback_and_reboot() itself, faster than waiting
+// for a crash, if the new image can't even reach WiFi.
 extern "C" bool verifyRollbackLater() { return true; }
 
 void setup() {
   Serial.begin(9600); // Initialize serial communication for debugging
+
+  // Arm the watchdog before anything else below, not just before loop() - a
+  // crash/hang anywhere in setup() (most likely an I2C lockup talking to the
+  // IMU/BMP280) needs to turn into a reboot too, both to recover a healthy
+  // board and so a genuinely bad OTA image gets the reboot it needs for the
+  // bootloader's rollback check above to ever see it again.
+  esp_task_wdt_init(WATCHDOG_TIMEOUT_SECONDS, true);
+  esp_task_wdt_add(NULL);
+
   errorReporterInit(); // Mount LittleFS, load persisted fault log
   checkResetReason(); // Logs UnexpectedReset if last boot was a crash/watchdog/brownout
+  logBuffer.println(String("Firmware commit: ") + FIRMWARE_COMMIT);
   setupWifi(); // Connect to WiFi
   setupOta(); // Setup OTA updates
   setupWebServer(); // Setup web server
@@ -73,19 +92,27 @@ void setup() {
   accelCalibrationInit(); // Load persisted accelerometer zero-offset, if any
   mqttConfigInit(); // Load persisted MQTT broker config, if any
   tuningInit(); // Load persisted motor/angle/timing tuning, if any
+  motorAgua.setFakeDisabled(tuning.aguaDisabledFake);
   setupMqtt();
 
-  // From here on, loop() must call esp_task_wdt_reset() regularly (also fed
-  // inside recoverFromWall()/turn() in robot_logic.cpp+turn_controller.cpp,
-  // which can legitimately block for seconds at a time) - if it ever stops,
-  // most likely an I2C lockup talking to the IMU/BMP280, reboot instead of
-  // sitting frozen underwater until someone pulls the robot out.
-  esp_task_wdt_init(WATCHDOG_TIMEOUT_SECONDS, true);
-  esp_task_wdt_add(NULL);
+  // Only now, after every step above has run without crashing or hanging -
+  // not just after WiFi connected - tell the bootloader this OTA image is
+  // good. Confirming any earlier (previously done right after WiFi connected,
+  // in wifi_manager.cpp) meant a crash in sensor/motor init immediately
+  // afterwards would already be "valid" and crash-loop forever with no way
+  // back to the last known-good firmware.
+  esp_ota_mark_app_valid_cancel_rollback();
 }
 
 void loop() {
   esp_task_wdt_reset();
+
+  // Deferred reboot requested via /maintenance?action=reboot|factoryReset -
+  // give the HTTP response time to flush before dropping the connection.
+  if (rebootRequested && (long)millis() > (long)rebootAtMillis) {
+    ESP.restart();
+  }
+
   ArduinoOTA.handle();
   maintainWifi();
   robotLogic();

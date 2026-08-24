@@ -18,7 +18,12 @@ void updateSensors() {
   if (imu->readAccel(aX, aY, aZ, aSqrt)) {
     clearErrorCode(ErrorCode::ImuReadFailed);
   } else {
-    logBuffer.println("Cannot read accel values");
+    // Only log the first failure of a run, not every one - a sustained I2C
+    // outage would otherwise reprint this on every 100ms tick and swallow
+    // the whole log buffer within seconds.
+    if (!isErrorActive(errorLog, (uint8_t)ErrorCode::ImuReadFailed)) {
+      logBuffer.println("Cannot read accel values");
+    }
     logError(ErrorCode::ImuReadFailed);
   }
 }
@@ -33,8 +38,13 @@ void updateYaw() {
   float dt = (now - lastYawUpdate) / 1000.0; // en segundos
   lastYawUpdate = now;
 
+  // Only log the first failure of a run, not every one - updateYaw() runs on
+  // every loop() iteration, so a sustained I2C outage would otherwise reprint
+  // this hundreds of times per second and swallow the whole log buffer.
   if (!imu->readGyro(gX, gY, gZ)) {
-    logBuffer.println("Cannot read gyro values");
+    if (!isErrorActive(errorLog, (uint8_t)ErrorCode::ImuReadFailed)) {
+      logBuffer.println("Cannot read gyro values");
+    }
     logError(ErrorCode::ImuReadFailed);
     return; // No gyro data, cannot update yaw
   }
@@ -46,7 +56,9 @@ void updateYaw() {
     gZ = (gZ2 + gZ) / 2;
     clearErrorCode(ErrorCode::ImuReadFailed);
   } else {
-    logBuffer.println("Cannot read gyro values");
+    if (!isErrorActive(errorLog, (uint8_t)ErrorCode::ImuReadFailed)) {
+      logBuffer.println("Cannot read gyro values");
+    }
     logError(ErrorCode::ImuReadFailed);
     return; // No gyro data, cannot update yaw
   }
@@ -69,6 +81,15 @@ float angle() {
   // accel - X: 0.04 Y: 1.01 Z:-0.09 Sqrt:1.01 de canto 1
   // accel - X:-0.08 Y:-1.00 Z:-0.00 Sqrt:1.00 de canto 2
   return 90.0f * calibratedZ(aZ, accelCalibration);
+}
+
+// Flipped onto its back: calibrated accel X flips from ~-1 (resting normally,
+// see the readings above) to ~+1. Normal operation (wall climbs, turns) never
+// pushes X anywhere near that range, so tuning.upsideDownThreshold has a wide
+// safety margin.
+bool isUpsideDown() {
+  updateSensors();
+  return calibratedX(aX, accelCalibration) > tuning.upsideDownThreshold;
 }
 
 // UI-only smoothing (does not touch angle()/wall detection, which must stay
