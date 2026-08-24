@@ -5,7 +5,7 @@
 ## Overview
 
 This project documents the restoration and enhancement of a Dolphin Sprite pool cleaning robot. After the original control board failed, I decided to replace it with custom hardware based on an ESP32-S2 Mini microcontroller, MPU9250 IMU sensor, and IBT-2 H-bridge motor drivers.
-**Power is supplied by the robot’s main 30V supply, stepped down to 3.3V using a voltage regulator.**
+**Power is supplied by the robot’s main 30V supply, stepped down to 3.3V using a voltage regulator, feeding the ESP32-S2 Mini's `3V3` pin directly (bypassing its onboard 5V→3.3V LDO) along with the IMU and both IBT-2 boards' logic VCC.**
 
 ---
 
@@ -38,21 +38,25 @@ This project documents the restoration and enhancement of a Dolphin Sprite pool 
 | LED_BUILTIN | LED               | Status indicator                |
 
 ### MPU9250 (I2C Connection)
-- VCC: 3.3V (from voltage regulator)
+- VCC: 3.3V (from voltage regulator, same rail as everything else)
 - GND: Ground
 - SDA: GPIO7
 - SCL: GPIO6
 
 ### IBT-2 H-Bridge Boards
-- VCC: 3.3V (logic, from voltage regulator)
+- VCC: 3.3V (logic supply for the onboard SN74AHC244 buffer, same rail as ESP32/IMU)
+- VS (motor power terminal): main 30V supply, separate from VCC — not through the regulator
 - GND: Ground
-- R_EN and L_EN: Connected to 5V (always enabled, or via ESP32 pins if you want to control enable)
+- R_EN and L_EN: Driven by ESP32 GPIO (see table above — pins 5/4 for movement, 10/11 for water)
 - RPWM: PWM input for forward direction (see table above)
 - LPWM: PWM input for reverse direction (see table above)
 
+> **Why VCC=3.3V, not 5V:** each IBT-2 board has an `SN74AHC244` line buffer between the header pins and the BTN7970/BTS7960 chips. Its VIH threshold is ratiometric to its own VCC pin (~3.5V min at VCC=5V per TI datasheet) — a 3.3V-logic GPIO (ESP32) doesn't reliably clear that, causing intermittent/flaky motor start. At VCC=3.3V the threshold drops to ~2.3V, which 3.3V GPIO clears comfortably. The BTN7970/BTS7960 chips themselves are fine with 3.3V logic (VIH max ~2.15V per Infineon datasheet) — the buffer was the bottleneck.
+
 ### Power Supply
-- **Main supply:** 30V (robot’s original battery)
-- **Voltage regulator:** Steps down 30V to 3.3V for ESP32, IMU, and logic
+- **Main supply:** 30V (robot's original battery) — feeds the IBT-2 VS (motor power) terminals directly
+- **Voltage regulator:** Steps down 30V to 3.3V, single rail feeding the ESP32-S2 Mini's `3V3` pin directly (skips the onboard LDO/5V pin), the MPU9250, and both IBT-2 boards' VCC (logic)
+- Size the regulator for peak current: ESP32 WiFi bursts ~400-500mA, plus IMU + 2× buffer chips (low mA) on top
 
 ---
 
